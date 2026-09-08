@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router'
 
+import AppLayout from './components/layout/AppLayout'
 import AddProductPage from './pages/AddProductPage'
 import DashboardPage from './pages/DashboardPage'
 import HomePage from './pages/HomePage'
@@ -11,9 +12,8 @@ import VerifyProductPage from './pages/VerifyProductPage'
 
 function App() {
   return (
-    // Temporary container. The shared app shell replaces this in the next step.
-    <main className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
-      <Routes>
+    <Routes>
+      <Route element={<AppLayout />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/products/new" element={<AddProductPage />} />
@@ -22,8 +22,8 @@ function App() {
         <Route path="/verify/:id" element={<VerifyProductPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </main>
+      </Route>
+    </Routes>
   )
 }
 

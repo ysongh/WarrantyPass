@@ -25,8 +25,8 @@ This repo is built in explicit, ordered phases, and *not building ahead* is a ha
 1. React/Vite/TypeScript ✅
 2. Tailwind CSS ✅
 3. React Router ✅
-4. App shell (`AppLayout`, `Header`) — next
-5. Landing page
+4. App shell (`AppLayout`, `Header`) ✅
+5. Landing page — next
 6. Dashboard placeholder
 7. Placeholder product pages
 8. Supabase client foundation
@@ -42,8 +42,9 @@ Avoid speculative abstractions for features that do not exist yet. Placeholder p
 Small and deliberately flat:
 
 - `src/main.tsx` — root providers wrap `<App />`. Currently `StrictMode` → `BrowserRouter`. Later phases add `WagmiProvider` and `QueryClientProvider` **outside** `BrowserRouter`.
-- `src/App.tsx` — the route table, plus a temporary layout container that the app shell will replace (marked with a comment).
-- `src/pages/*.tsx` — one component per route, default-exported.
+- `src/App.tsx` — the route table. Every route nests inside a single `AppLayout` layout route.
+- `src/components/layout/` — `AppLayout` (shell, renders `<Outlet />`) and `Header` (wordmark + nav). Pages never repeat shell markup; the wallet button slots into `Header` in phase 9.
+- `src/pages/*.tsx` — one component per route, default-exported, rendering only page content.
 - `src/index.css` — Tailwind import, design tokens, base layer.
 
 Routes: `/`, `/dashboard`, `/products/new`, `/products/:id`, `/products/:id/transfer`, `/verify/:id`, `/settings`, and a `*` catch-all. `/products/new` correctly beats `/products/:id` because React Router ranks static segments above dynamic ones.
