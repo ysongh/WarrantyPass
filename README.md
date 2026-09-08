@@ -13,9 +13,33 @@ Currently in place:
 
 - React + Vite + TypeScript (strict)
 - Tailwind CSS v4
+- React Router, with placeholder pages for every route
 
-Not yet built: React Router, the app shell, page placeholders, the Supabase
-client, and the wagmi/viem wallet setup.
+Not yet built: the shared app shell, real page content, the Supabase client,
+and the wagmi/viem wallet setup.
+
+## Routes
+
+Client-side routing via React Router. Page components live in
+[`src/pages/`](src/pages/) and the route table is in
+[`src/App.tsx`](src/App.tsx).
+
+| Path                     | Page                    | Purpose                        |
+| ------------------------ | ----------------------- | ------------------------------ |
+| `/`                      | `HomePage`              | Landing page                   |
+| `/dashboard`             | `DashboardPage`         | The user's WarrantyPasses      |
+| `/products/new`          | `AddProductPage`        | Add a product                  |
+| `/products/:id`          | `ProductDetailsPage`    | WarrantyPass detail            |
+| `/products/:id/transfer` | `TransferProductPage`   | Ownership transfer             |
+| `/verify/:id`            | `VerifyProductPage`     | Public verification            |
+| `/settings`              | `SettingsPage`          | Account and wallet settings    |
+| `*`                      | `NotFoundPage`          | Not Found                      |
+
+All pages are placeholders. Note that `react-router` v7+ merged
+`react-router-dom` into the core package — import from `react-router`.
+
+Deploying to a static host requires a rewrite rule sending unmatched paths to
+`index.html`, otherwise deep links such as `/products/abc123` will 404.
 
 ## Styling
 

@@ -1,20 +1,28 @@
+import { Route, Routes } from 'react-router'
+
+import AddProductPage from './pages/AddProductPage'
+import DashboardPage from './pages/DashboardPage'
+import HomePage from './pages/HomePage'
+import NotFoundPage from './pages/NotFoundPage'
+import ProductDetailsPage from './pages/ProductDetailsPage'
+import SettingsPage from './pages/SettingsPage'
+import TransferProductPage from './pages/TransferProductPage'
+import VerifyProductPage from './pages/VerifyProductPage'
+
 function App() {
   return (
+    // Temporary container. The shared app shell replaces this in the next step.
     <main className="mx-auto max-w-3xl px-6 py-16 sm:py-24">
-      <h1 className="text-3xl font-semibold tracking-tight text-balance sm:text-4xl">
-        WarrantyPass
-      </h1>
-      <p className="mt-3 text-lg text-ink-muted text-pretty">
-        Keep the warranty with the product.
-      </p>
-
-      <div className="mt-10 rounded-card border border-line bg-surface p-6 sm:p-8">
-        <h2 className="text-base font-semibold">Foundation in progress</h2>
-        <p className="mt-2 text-ink-muted text-pretty">
-          React, Vite, TypeScript, and Tailwind CSS are wired up. Routing, the
-          app shell, and the landing page arrive in the next steps.
-        </p>
-      </div>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/products/new" element={<AddProductPage />} />
+        <Route path="/products/:id" element={<ProductDetailsPage />} />
+        <Route path="/products/:id/transfer" element={<TransferProductPage />} />
+        <Route path="/verify/:id" element={<VerifyProductPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
     </main>
   )
 }
