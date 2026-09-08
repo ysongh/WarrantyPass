@@ -1,22 +1,58 @@
-:root {
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  line-height: 1.5;
-  color: #18181b;
-  background-color: #fafafa;
-  -webkit-font-smoothing: antialiased;
+@import 'tailwindcss';
+
+/*
+ * Tailwind v4 auto-detects sources across the whole project. The docs contain
+ * example class names that would otherwise be compiled into the bundle, so
+ * exclude them; only classes genuinely used in src/ should ship.
+ */
+@source not '../docs';
+
+/*
+ * WarrantyPass design tokens.
+ *
+ * Tailwind v4 is configured in CSS rather than a tailwind.config.js file.
+ * Every token below is emitted as a utility, so `--color-ink-muted` becomes
+ * `text-ink-muted`, `--radius-card` becomes `rounded-card`, and so on.
+ */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+
+  /* Brand — primary actions and accents. */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+
+  /* Surfaces and text. `canvas` is the page, `surface` is a card on it. */
+  --color-canvas: #f8fafc;
+  --color-surface: #ffffff;
+  --color-line: #e2e8f0;
+  --color-ink: #0f172a;
+  --color-ink-muted: #64748b;
+
+  --radius-card: 1rem;
 }
 
-body {
-  margin: 0;
-  min-height: 100vh;
-}
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
 
-.app {
-  max-width: 40rem;
-  margin: 0 auto;
-  padding: 4rem 1.5rem;
-}
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 
-.muted {
-  color: #71717a;
+  /* A single consistent focus ring, so keyboard users are never lost. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
 }

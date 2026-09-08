@@ -12,9 +12,26 @@ ownership, receipts, warranties, repairs, and ownership transfers.
 Currently in place:
 
 - React + Vite + TypeScript (strict)
+- Tailwind CSS v4
 
-Not yet built: Tailwind CSS, React Router, the app shell, page placeholders,
-the Supabase client, and the wagmi/viem wallet setup.
+Not yet built: React Router, the app shell, page placeholders, the Supabase
+client, and the wagmi/viem wallet setup.
+
+## Styling
+
+Tailwind CSS v4, configured entirely in CSS — there is no
+`tailwind.config.js`. Design tokens live in the `@theme` block of
+[`src/index.css`](src/index.css), which is the source of truth for values.
+
+See [`docs/design-system.md`](docs/design-system.md) for the tokens, layout
+conventions, accessibility notes, and voice.
+
+## Documentation
+
+| Document                                                            | Purpose                                            |
+| ------------------------------------------------------------------- | -------------------------------------------------- |
+| [`docs/design-system.md`](docs/design-system.md)                     | WarrantyPass design system — tokens and conventions |
+| [`docs/reference/creativity-studio.md`](docs/reference/creativity-studio.md) | Unrelated design system kept as inspiration only    |
 
 ## Requirements
 
