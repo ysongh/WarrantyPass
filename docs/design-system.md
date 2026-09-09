@@ -4,8 +4,8 @@ The source of truth for how WarrantyPass looks. Every token described here is
 implemented in [`src/index.css`](../src/index.css) — if the two disagree, the
 CSS is right and this file needs fixing.
 
-**Status:** Phase 1, item 2. Tokens and base styles exist. Component patterns
-below are conventions for the pages built in items 4–7, not shipped code.
+**Status:** Phase 2. Tokens, base styles, and the shared primitives below are
+shipped code.
 
 ---
 
@@ -47,6 +47,25 @@ utility automatically.
 | `--color-brand-500` | `#3b82f6` | `bg-brand-500`  | Hover states                    |
 | `--color-brand-600` | `#2563eb` | `bg-brand-600`  | Primary buttons, links, focus   |
 | `--color-brand-700` | `#1d4ed8` | `bg-brand-700`  | Pressed / active                |
+
+Warranty status, added in phase 2 for the dashboard and detail pages. Each ramp
+is a tint, a border, and a text colour dark enough to clear AA on its own tint.
+
+| Token                 | Value     | Utility              | Use                    |
+| --------------------- | --------- | -------------------- | ---------------------- |
+| `--color-success-50`  | `#ecfdf5` | `bg-success-50`      | Active badge tint      |
+| `--color-success-200` | `#a7f3d0` | `border-success-200` | Active badge border    |
+| `--color-success-700` | `#047857` | `text-success-700`   | Active badge text      |
+| `--color-warning-50`  | `#fffbeb` | `bg-warning-50`      | Expiring badge tint    |
+| `--color-warning-200` | `#fde68a` | `border-warning-200` | Expiring badge border  |
+| `--color-warning-700` | `#b45309` | `text-warning-700`   | Expiring badge text    |
+| `--color-danger-50`   | `#fef2f2` | `bg-danger-50`       | Expired / error tint   |
+| `--color-danger-200`  | `#fecaca` | `border-danger-200`  | Expired / error border |
+| `--color-danger-700`  | `#b91c1c` | `text-danger-700`    | Expired text, form errors, invalid field borders |
+
+**Status is never signalled by colour alone.** The badge always spells out
+"Warranty active", "Expiring soon", or "Warranty expired", so it still works in
+monochrome and for anyone who cannot separate the three tints.
 
 Use the semantic names, not Tailwind's built-in palette. Writing `bg-slate-50`
 where you mean `bg-canvas` breaks the ability to retheme later.
@@ -92,16 +111,30 @@ component files.
 
 ## Component patterns
 
-Not yet built — these are the agreed shapes for items 4–7.
+**Buttons.** [`ButtonLink`](../src/components/ui/ButtonLink.tsx) for navigation,
+[`Button`](../src/components/ui/Button.tsx) for actions. Same shape, same
+`primary` / `secondary` variants — pick by whether the thing navigates or does
+something. One primary per view section.
 
-**Primary button.** One per view. `rounded-card bg-brand-600 px-5 py-2.5
-font-medium text-white hover:bg-brand-700`.
+**Form fields.** [`TextField` and `SelectField`](../src/components/ui/FormField.tsx).
+Every control gets a real `<label for>`, and hints and errors are wired through
+`aria-describedby` so a screen reader announces the error with the field rather
+than leaving it as unattached red text. Invalid fields also get
+`aria-invalid` and a `border-danger-700` edge — never colour alone.
 
-**Secondary button.** `rounded-card border border-line bg-surface px-5 py-2.5
-font-medium text-ink hover:bg-canvas`.
+**Status badge.** [`WarrantyStatusBadge`](../src/components/products/WarrantyStatusBadge.tsx).
+A bordered pill using the status ramps, always with a text label.
 
 **Empty state.** Heading, one muted sentence explaining what's missing, and a
 single primary action. No illustration.
+
+**Loading.** Skeleton blocks (`animate-pulse bg-line`) shaped like the content
+they replace, wrapped in `role="status"` with an `sr-only` description. Never a
+spinner alone.
+
+**Error state.** Say what failed and offer a retry. An error must never be
+rendered as an empty state — a user who is told they have no products will add
+them again.
 
 Build these as React components under `src/components/` rather than repeating
 class strings. Extract on the second use, not in anticipation of one.
@@ -186,6 +219,4 @@ this system will be original regardless.
 - **Icons.** No set chosen. Whatever we pick must be bundled, not CDN-loaded.
 - **Dark mode.** Not designed. Tokens are structured to make it possible later
   by redefining them under a `prefers-color-scheme` block.
-- **Status colours.** Warranty states (active / expiring / expired) will need
-  success, warning, and danger tokens. Add them when the dashboard needs them,
-  not before.
+- ~~**Status colours.**~~ Resolved in phase 2 — see the status ramps above.

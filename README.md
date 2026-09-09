@@ -7,18 +7,31 @@ ownership, receipts, warranties, repairs, and ownership transfers.
 
 ## Status
 
-**Phase 1 — application foundation (in progress).**
+**Phase 2 — offchain product records (complete).**
 
-Currently in place:
+Phase 1 foundation:
 
 - React + Vite + TypeScript (strict)
 - Tailwind CSS v4
-- React Router, with placeholder pages for every route
+- React Router
 - Shared app shell (header + layout)
 - Supabase client foundation
 - Wallet connectivity (wagmi + viem, Sepolia)
 
-Phase 1 is complete. No product data, schema, auth, or contracts yet.
+Phase 2 adds:
+
+- Anonymous Supabase authentication, persisted across reloads
+- `products` and `warranties` tables with row-level security
+- Atomic product + warranty creation through a database function
+- A real Add product form with validation and coverage-length presets
+- A dashboard with warranty status, filters, and loading/empty/error states
+- A product detail page, with the serial number masked
+
+No receipts, no AI, no smart contracts, no ENS, and no transfers yet.
+
+**Setup requires one dashboard toggle:** anonymous sign-ins must be enabled on
+the Supabase project, and the migration must be applied. See
+[`docs/data-model.md`](docs/data-model.md).
 
 ## Wallet
 
@@ -47,7 +60,28 @@ restricted by row-level security, not by keeping the anon key secret.
 
 The app runs without these set: [`src/lib/supabase.ts`](src/lib/supabase.ts)
 exports `supabase` as `null` and `isSupabaseConfigured` as `false`, and warns
-once in the dev console. Check the flag before using the client.
+once in the dev console. Check the flag before using the client. Product pages
+detect this and say the app is not connected to a database rather than showing
+an empty account.
+
+## Database
+
+Schema, row-level security, the anonymous auth model, and how to apply
+migrations are documented in [`docs/data-model.md`](docs/data-model.md).
+
+Two things are required before product features work:
+
+1. **Enable anonymous sign-ins** in the Supabase dashboard under
+   Authentication → Sign In / Providers. The `enable_anonymous_sign_ins = true`
+   in [`supabase/config.toml`](supabase/config.toml) applies only to a local
+   `supabase start` — it does not configure a hosted project.
+2. **Apply the migration**, with `supabase db push` against a linked project,
+   `supabase db reset` locally, or by pasting
+   [the migration](supabase/migrations/) into the SQL editor.
+
+Rows are owned by an anonymous Supabase user's `auth.uid()`. **A connected
+wallet address is not an authorization identity** — the browser claiming an
+address proves nothing to Postgres. Never filter or write a policy on one.
 
 ## Routes
 
@@ -55,18 +89,26 @@ Client-side routing via React Router. Page components live in
 [`src/pages/`](src/pages/) and the route table is in
 [`src/App.tsx`](src/App.tsx).
 
-| Path                     | Page                    | Purpose                        |
-| ------------------------ | ----------------------- | ------------------------------ |
-| `/`                      | `HomePage`              | Landing page                   |
-| `/dashboard`             | `DashboardPage`         | The user's WarrantyPasses      |
-| `/products/new`          | `AddProductPage`        | Add a product                  |
-| `/products/:id`          | `ProductDetailsPage`    | WarrantyPass detail            |
-| `/products/:id/transfer` | `TransferProductPage`   | Ownership transfer             |
-| `/verify/:id`            | `VerifyProductPage`     | Public verification            |
-| `/settings`              | `SettingsPage`          | Account and wallet settings    |
-| `*`                      | `NotFoundPage`          | Not Found                      |
+| Path                     | Page                    | Purpose                        | Status      |
+| ------------------------ | ----------------------- | ------------------------------ | ----------- |
+| `/`                      | `HomePage`              | Landing page                   | Built       |
+| `/dashboard`             | `DashboardPage`         | The user's WarrantyPasses      | Built       |
+| `/products/new`          | `AddProductPage`        | Add a product                  | Built       |
+| `/products/:id`          | `ProductDetailsPage`    | WarrantyPass detail            | Built       |
+| `/products/:id/transfer` | `TransferProductPage`   | Ownership transfer             | Placeholder |
+| `/verify/:id`            | `VerifyProductPage`     | Public verification            | Placeholder |
+| `/settings`              | `SettingsPage`          | Account and wallet settings    | Placeholder |
+| `*`                      | `NotFoundPage`          | Not Found                      | Built       |
 
-All pages are placeholders. Every route renders inside `AppLayout`
+`/products/:id` takes the product's UUID. It is an authenticated, private route;
+row-level security is what protects it, and a product belonging to someone else
+is indistinguishable from one that does not exist.
+
+`/verify/:id` reads nothing from the database. It stays a placeholder until
+public verification has a deliberate public-data model — see
+[`docs/data-model.md`](docs/data-model.md).
+
+Every route renders inside `AppLayout`
 ([`src/components/layout/`](src/components/layout/)), which is wired as a
 layout route — pages render through its `Outlet` and inherit the header and
 content width, so no page repeats the shell markup.
@@ -90,6 +132,7 @@ conventions, accessibility notes, and voice.
 
 | Document                                                            | Purpose                                            |
 | ------------------------------------------------------------------- | -------------------------------------------------- |
+| [`docs/data-model.md`](docs/data-model.md)                           | Schema, RLS, anonymous auth, migration workflow     |
 | [`docs/design-system.md`](docs/design-system.md)                     | WarrantyPass design system — tokens and conventions |
 | [`docs/reference/creativity-studio.md`](docs/reference/creativity-studio.md) | Unrelated design system kept as inspiration only    |
 

@@ -1,11 +1,16 @@
 @import 'tailwindcss';
 
 /*
- * Tailwind v4 auto-detects sources across the whole project. The docs contain
- * example class names that would otherwise be compiled into the bundle, so
- * exclude them; only classes genuinely used in src/ should ship.
+ * Tailwind v4 auto-detects sources across the whole project. Markdown counts:
+ * any class name written in prose gets compiled into the bundle. Both of these
+ * are load-bearing — only classes genuinely used in src/ should ship.
+ *
+ * The root exclusion covers CLAUDE.md and README.md, which document conventions
+ * by example. CLAUDE.md names `bg-slate-50` precisely to say *not* to use it,
+ * and without this line that utility was emitted into production CSS.
  */
 @source not '../docs';
+@source not '../*.md';
 
 /*
  * WarrantyPass design tokens.
@@ -32,6 +37,23 @@
   --color-line: #e2e8f0;
   --color-ink: #0f172a;
   --color-ink-muted: #64748b;
+
+  /*
+   * Warranty status. Each ramp is a tinted background, a border, and a text
+   * colour dark enough to clear WCAG AA on its own tint. Status is never
+   * signalled by colour alone — the badge always carries a text label too.
+   */
+  --color-success-50: #ecfdf5;
+  --color-success-200: #a7f3d0;
+  --color-success-700: #047857;
+
+  --color-warning-50: #fffbeb;
+  --color-warning-200: #fde68a;
+  --color-warning-700: #b45309;
+
+  --color-danger-50: #fef2f2;
+  --color-danger-200: #fecaca;
+  --color-danger-700: #b91c1c;
 
   --radius-card: 1rem;
 }
