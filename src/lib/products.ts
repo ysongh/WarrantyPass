@@ -8,6 +8,7 @@ import type {
   WarrantyTransferability,
 } from '../types/product'
 import { supabase } from './supabase'
+import { toUserFacingError, type UserFacingMessages } from './supabaseErrors'
 
 /*
  * Every Supabase read and write for products lives here, so pages never build
@@ -131,29 +132,22 @@ function mapProduct(row: ProductRow): ProductWithWarranty {
 }
 
 /**
- * Turns a Supabase failure into something safe to render.
- *
- * The raw error is logged for the developer and replaced with plain copy for
- * the user: Postgres messages name tables, columns and constraints, which is
- * both meaningless to a consumer and more about our schema than we want on
- * screen. Nothing logged here includes the values the user typed, so serial
- * numbers stay out of the console.
+ * Copy shared by every failure in this module. The raw error is logged and
+ * replaced with something safe to render — see `supabaseErrors.ts`.
  */
-function toUserFacingError(context: string, error: PostgrestError | null): Error {
-  console.error(`[products] ${context} failed.`, error)
+const PRODUCT_MESSAGES: UserFacingMessages = {
+  invalidInput: "Those details weren't accepted. Check the dates and try again.",
+  byCode: {
+    // Raised by create_product_with_warranty() when the receipt it was asked to
+    // attach is gone, is not the caller's, or already belongs to another
+    // product. The whole transaction rolled back, so nothing was created.
+    WP001:
+      'That receipt is no longer available. Upload it again, or continue without it.',
+  },
+}
 
-  if (error?.code === '42501' || error?.code === 'PGRST301') {
-    return new Error('Your session has expired. Reload the page and try again.')
-  }
-
-  // 23514 check_violation, 23505 unique_violation, 23502 not_null_violation.
-  if (error?.code?.startsWith('23')) {
-    return new Error(
-      "Those details weren't accepted. Check the dates and try again.",
-    )
-  }
-
-  return new Error("Something went wrong. Please try again.")
+function toProductError(context: string, error: PostgrestError | null): Error {
+  return toUserFacingError(`products: ${context}`, error, PRODUCT_MESSAGES)
 }
 
 function requireClient(): SupabaseClient {
@@ -175,7 +169,7 @@ export async function getProducts(): Promise<ProductWithWarranty[]> {
     .select(PRODUCT_COLUMNS)
     .order('created_at', { ascending: false })
 
-  if (error) throw toUserFacingError('Loading products', error)
+  if (error) throw toProductError('Loading products', error)
 
   return ((data ?? []) as unknown as ProductRow[]).map(mapProduct)
 }
@@ -201,7 +195,7 @@ export async function getProductById(
     .eq('id', id)
     .maybeSingle()
 
-  if (error) throw toUserFacingError('Loading product', error)
+  if (error) throw toProductError('Loading product', error)
   if (!data) return null
 
   return mapProduct(data as unknown as ProductRow)
@@ -214,6 +208,13 @@ export async function getProductById(
  * `user_id` and `public_id` are absent from the arguments on purpose: the
  * database derives the owner from `auth.uid()` and generates the public
  * identifier itself, so neither can be influenced from the browser.
+ *
+ * `receiptId` is optional and null for a manually entered product. When it is
+ * present the function also attaches that receipt, inside the same transaction:
+ * a product that was created but lost its receipt is not a state this app can
+ * produce. The database re-checks that the receipt is the caller's and is not
+ * already attached, so passing someone else's id fails rather than succeeding
+ * quietly.
  */
 export async function createProductWithWarranty(
   input: CreateProductInput,
@@ -233,15 +234,16 @@ export async function createProductWithWarranty(
       p_purchase_price: input.purchasePrice ?? null,
       p_currency: input.currency ?? 'USD',
       p_warranty_issuer: input.warrantyIssuer ?? null,
+      p_receipt_id: input.receiptId ?? null,
     })
     .single()
 
-  if (error) throw toUserFacingError('Creating product', error)
+  if (error) throw toProductError('Creating product', error)
 
   const row = data as unknown as { product_id: string; public_id: string } | null
 
   if (!row?.product_id) {
-    throw toUserFacingError('Creating product', null)
+    throw toProductError('Creating product', null)
   }
 
   return { productId: row.product_id, publicId: row.public_id }

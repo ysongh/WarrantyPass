@@ -77,6 +77,11 @@ export type CreateProductInput = {
   warrantyStartDate: IsoDate
   warrantyEndDate: IsoDate
   transferability: WarrantyTransferability
+  /**
+   * An uploaded receipt to attach, or null for a manually entered product.
+   * Receipts are never required — both flows produce the same product.
+   */
+  receiptId?: string | null
 }
 
 export type CreatedProduct = {
