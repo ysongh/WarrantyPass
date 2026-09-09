@@ -29,8 +29,8 @@ This repo is built in explicit, ordered phases, and *not building ahead* is a ha
 5. Landing page ✅
 6. Dashboard placeholder ✅
 7. Placeholder product pages ✅
-8. Supabase client foundation — next
-9. wagmi + viem wallet connectivity (Sepolia)
+8. Supabase client foundation ✅
+9. wagmi + viem wallet connectivity (Sepolia) — next
 10. Root providers
 
 Explicitly **out of scope until a later phase**, even though the product vision implies them: Supabase schema or auth, receipt upload, OCR/AI parsing, warranty creation, smart contracts, ENSv2, onchain receipt hashes, product transfers, QR codes, service records, notifications.
@@ -46,6 +46,7 @@ Small and deliberately flat:
 - `src/components/layout/` — `AppLayout` (shell, renders `<Outlet />`) and `Header` (wordmark + nav). Pages never repeat shell markup; the wallet button slots into `Header` in phase 9.
 - `src/components/ui/` — shared primitives. Currently just `ButtonLink` (a router `Link` styled as a button, `primary` / `secondary`). Extract here on the second use, not in anticipation of one.
 - `src/pages/*.tsx` — one component per route, default-exported, rendering only page content.
+- `src/lib/supabase.ts` — browser client. Exports `supabase`, which is **`SupabaseClient | null`**, plus `isSupabaseConfigured`. It is nullable on purpose: the app must run locally without a Supabase project, so check the flag (or narrow the null) before use rather than making the export non-nullable.
 - `src/index.css` — Tailwind import, design tokens, base layer.
 
 Routes: `/`, `/dashboard`, `/products/new`, `/products/:id`, `/products/:id/transfer`, `/verify/:id`, `/settings`, and a `*` catch-all. `/products/new` correctly beats `/products/:id` because React Router ranks static segments above dynamic ones.

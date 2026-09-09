@@ -15,9 +15,27 @@ Currently in place:
 - Tailwind CSS v4
 - React Router, with placeholder pages for every route
 - Shared app shell (header + layout)
+- Supabase client foundation
 
-Not yet built: real page content, the Supabase client, and the wagmi/viem
-wallet setup.
+Not yet built: the wagmi/viem wallet setup, and any real product data.
+
+## Environment
+
+Copy [`.env.example`](.env.example) to `.env` and fill in the values:
+
+| Variable                 | Purpose                                   |
+| ------------------------ | ----------------------------------------- |
+| `VITE_SUPABASE_URL`      | Supabase project URL                      |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon/public key                  |
+
+**Anything prefixed `VITE_` is compiled into the client bundle in plain text
+and is publicly readable.** Only public configuration belongs there — never a
+service-role key or any private API key. Access to data is expected to be
+restricted by row-level security, not by keeping the anon key secret.
+
+The app runs without these set: [`src/lib/supabase.ts`](src/lib/supabase.ts)
+exports `supabase` as `null` and `isSupabaseConfigured` as `false`, and warns
+once in the dev console. Check the flag before using the client.
 
 ## Routes
 
