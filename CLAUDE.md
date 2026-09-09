@@ -26,8 +26,8 @@ This repo is built in explicit, ordered phases, and *not building ahead* is a ha
 2. Tailwind CSS ✅
 3. React Router ✅
 4. App shell (`AppLayout`, `Header`) ✅
-5. Landing page — next
-6. Dashboard placeholder
+5. Landing page ✅
+6. Dashboard placeholder — next
 7. Placeholder product pages
 8. Supabase client foundation
 9. wagmi + viem wallet connectivity (Sepolia)
@@ -44,6 +44,7 @@ Small and deliberately flat:
 - `src/main.tsx` — root providers wrap `<App />`. Currently `StrictMode` → `BrowserRouter`. Later phases add `WagmiProvider` and `QueryClientProvider` **outside** `BrowserRouter`.
 - `src/App.tsx` — the route table. Every route nests inside a single `AppLayout` layout route.
 - `src/components/layout/` — `AppLayout` (shell, renders `<Outlet />`) and `Header` (wordmark + nav). Pages never repeat shell markup; the wallet button slots into `Header` in phase 9.
+- `src/components/ui/` — shared primitives. Currently just `ButtonLink` (a router `Link` styled as a button, `primary` / `secondary`). Extract here on the second use, not in anticipation of one.
 - `src/pages/*.tsx` — one component per route, default-exported, rendering only page content.
 - `src/index.css` — Tailwind import, design tokens, base layer.
 

@@ -1,4 +1,4 @@
-import { Link } from 'react-router'
+import ButtonLink from '../components/ui/ButtonLink'
 
 function NotFoundPage() {
   return (
@@ -10,12 +10,9 @@ function NotFoundPage() {
       <p className="mt-3 text-ink-muted text-pretty">
         That page doesn't exist. Check the address, or head back to the start.
       </p>
-      <Link
-        to="/"
-        className="mt-6 inline-block rounded-card bg-brand-600 px-5 py-2.5 font-medium text-white hover:bg-brand-700"
-      >
+      <ButtonLink to="/" className="mt-6">
         Go home
-      </Link>
+      </ButtonLink>
     </>
   )
 }
