@@ -8,10 +8,13 @@ function VerifyProductPage() {
       <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
         Verify product
       </h1>
-      <p className="mt-3 text-ink-muted text-pretty">
-        Public verification for product <code className="text-ink">{id}</code>{' '}
-        will be built in a later phase. Only safe parts of a product's history
-        will ever appear here.
+      <p className="mt-3 max-w-2xl text-ink-muted text-pretty">
+        This page is public, so a buyer can check a product before paying for
+        it. It will show only the safe parts of a product's history — never the
+        owner's personal information or the receipt itself.
+      </p>
+      <p className="mt-6 text-sm text-ink-muted">
+        Product ID: <code className="text-ink">{id}</code>
       </p>
     </>
   )

@@ -8,9 +8,13 @@ function TransferProductPage() {
       <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
         Transfer ownership
       </h1>
-      <p className="mt-3 text-ink-muted text-pretty">
-        Handing product <code className="text-ink">{id}</code> to a new owner
-        will be built in a later phase.
+      <p className="mt-3 max-w-2xl text-ink-muted text-pretty">
+        Handing a product to its next owner will be built in a later phase. The
+        receipt, warranty, and service history move with the item; the seller's
+        personal details do not.
+      </p>
+      <p className="mt-6 text-sm text-ink-muted">
+        Product ID: <code className="text-ink">{id}</code>
       </p>
     </>
   )

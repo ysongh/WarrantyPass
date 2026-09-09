@@ -27,9 +27,9 @@ This repo is built in explicit, ordered phases, and *not building ahead* is a ha
 3. React Router ✅
 4. App shell (`AppLayout`, `Header`) ✅
 5. Landing page ✅
-6. Dashboard placeholder — next
-7. Placeholder product pages
-8. Supabase client foundation
+6. Dashboard placeholder ✅
+7. Placeholder product pages ✅
+8. Supabase client foundation — next
 9. wagmi + viem wallet connectivity (Sepolia)
 10. Root providers
 
