@@ -30,8 +30,10 @@ This repo is built in explicit, ordered phases, and *not building ahead* is a ha
 6. Dashboard placeholder ✅
 7. Placeholder product pages ✅
 8. Supabase client foundation ✅
-9. wagmi + viem wallet connectivity (Sepolia) — next
-10. Root providers
+9. wagmi + viem wallet connectivity (Sepolia) ✅
+10. Root providers ✅
+
+Phase 1 is complete. Do not start Phase 2 (Supabase data model, Add Product flow) without being asked.
 
 Explicitly **out of scope until a later phase**, even though the product vision implies them: Supabase schema or auth, receipt upload, OCR/AI parsing, warranty creation, smart contracts, ENSv2, onchain receipt hashes, product transfers, QR codes, service records, notifications.
 
@@ -41,13 +43,17 @@ Avoid speculative abstractions for features that do not exist yet. Placeholder p
 
 Small and deliberately flat:
 
-- `src/main.tsx` — root providers wrap `<App />`. Currently `StrictMode` → `BrowserRouter`. Later phases add `WagmiProvider` and `QueryClientProvider` **outside** `BrowserRouter`.
+- `src/main.tsx` — root providers wrap `<App />`, nested `StrictMode` → `WagmiProvider` → `QueryClientProvider` → `BrowserRouter`. wagmi requires react-query above it; keep both outside the router.
 - `src/App.tsx` — the route table. Every route nests inside a single `AppLayout` layout route.
 - `src/components/layout/` — `AppLayout` (shell, renders `<Outlet />`) and `Header` (wordmark + nav). Pages never repeat shell markup; the wallet button slots into `Header` in phase 9.
 - `src/components/ui/` — shared primitives. Currently just `ButtonLink` (a router `Link` styled as a button, `primary` / `secondary`). Extract here on the second use, not in anticipation of one.
 - `src/pages/*.tsx` — one component per route, default-exported, rendering only page content.
 - `src/lib/supabase.ts` — browser client. Exports `supabase`, which is **`SupabaseClient | null`**, plus `isSupabaseConfigured`. It is nullable on purpose: the app must run locally without a Supabase project, so check the flag (or narrow the null) before use rather than making the export non-nullable.
+- `src/lib/wagmi.ts` — wagmi **v3** (not v2; connectors live at `wagmi/connectors`). Sepolia only, injected connector only — no WalletConnect project ID needed. `VITE_SEPOLIA_RPC_URL` optionally overrides the default public RPC.
+- `src/components/wallet/WalletButton.tsx` — connect / shortened address / disconnect, slotted into `Header`.
 - `src/index.css` — Tailwind import, design tokens, base layer.
+
+Addresses from wagmi are **EIP-55 checksummed** (mixed case). Never compare one to a stored address with a bare `===` — normalise case on both sides first.
 
 Routes: `/`, `/dashboard`, `/products/new`, `/products/:id`, `/products/:id/transfer`, `/verify/:id`, `/settings`, and a `*` catch-all. `/products/new` correctly beats `/products/:id` because React Router ranks static segments above dynamic ones.
 

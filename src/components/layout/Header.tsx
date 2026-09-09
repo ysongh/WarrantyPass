@@ -1,5 +1,7 @@
 import { Link, NavLink } from 'react-router'
 
+import WalletButton from '../wallet/WalletButton'
+
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/products/new', label: 'Add product' },
@@ -24,7 +26,7 @@ function Header() {
           WarrantyPass
         </Link>
 
-        <div className="flex items-center gap-1 text-sm">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
           <nav aria-label="Main" className="flex items-center gap-1">
             {navLinks.map(({ to, label }) => (
               <NavLink key={to} to={to} className={navLinkClass}>
@@ -32,7 +34,7 @@ function Header() {
               </NavLink>
             ))}
           </nav>
-          {/* The wallet connect button is added here in a later step. */}
+          <WalletButton />
         </div>
       </div>
     </header>

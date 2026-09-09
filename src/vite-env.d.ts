@@ -8,4 +8,6 @@
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string
   readonly VITE_SUPABASE_ANON_KEY?: string
+  /** Optional. Falls back to Sepolia's default public RPC when unset. */
+  readonly VITE_SEPOLIA_RPC_URL?: string
 }

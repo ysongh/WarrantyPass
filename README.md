@@ -16,8 +16,20 @@ Currently in place:
 - React Router, with placeholder pages for every route
 - Shared app shell (header + layout)
 - Supabase client foundation
+- Wallet connectivity (wagmi + viem, Sepolia)
 
-Not yet built: the wagmi/viem wallet setup, and any real product data.
+Phase 1 is complete. No product data, schema, auth, or contracts yet.
+
+## Wallet
+
+[`src/lib/wagmi.ts`](src/lib/wagmi.ts) configures **Sepolia** with the injected
+connector only, so a browser wallet such as MetaMask works with no third-party
+project ID. [`WalletButton`](src/components/wallet/WalletButton.tsx) sits in the
+header: it connects, shows a shortened `0x1234…5678`, offers Disconnect, and
+prompts to switch network if the wallet is on the wrong chain.
+
+Addresses returned by wagmi are EIP-55 checksummed, so compare them
+case-insensitively against anything stored elsewhere.
 
 ## Environment
 
