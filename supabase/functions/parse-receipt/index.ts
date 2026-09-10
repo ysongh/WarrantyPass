@@ -1,6 +1,10 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
-import { describeExtractionShape, parseReceiptExtraction } from './extraction.ts'
+import {
+  describeExtractionShape,
+  getExtractionFailureReason,
+  parseReceiptExtraction,
+} from './extraction.ts'
 import { extractReceipt, ProviderError } from './provider.ts'
 
 /*
@@ -26,7 +30,8 @@ import { extractReceipt, ProviderError } from './provider.ts'
  * -------
  * Receipt bytes are held in memory for the length of one request and are
  * never logged, never echoed in a response, and never written anywhere but
- * the provider request. Log lines carry ids and error reasons only.
+ * the provider request. Log lines carry ids, fixed error reasons and safe
+ * metadata only; extraction diagnostics contain types and counts, not values.
  */
 
 const BUCKET = 'receipts'
@@ -106,7 +111,7 @@ async function markFailed(
     .update({ extraction_status: 'failed', extraction_error: reason })
     .eq('id', receiptId)
 
-  if (error) console.error('[parse-receipt] could not mark failed', error.message)
+  if (error) console.error('[parse-receipt] could not mark failed')
 }
 
 Deno.serve(async (request: Request) => {
@@ -167,7 +172,7 @@ Deno.serve(async (request: Request) => {
     .maybeSingle<ReceiptRow>()
 
   if (rowError) {
-    console.error('[parse-receipt] receipt lookup failed', rowError.message)
+    console.error('[parse-receipt] receipt lookup failed')
     return json(500, { error: 'Could not load that receipt.' })
   }
 
@@ -201,7 +206,7 @@ Deno.serve(async (request: Request) => {
     .maybeSingle()
 
   if (claimError) {
-    console.error('[parse-receipt] could not claim receipt', claimError.message)
+    console.error('[parse-receipt] could not claim receipt')
     return json(500, { error: 'Could not start reading that receipt.' })
   }
 
@@ -215,7 +220,7 @@ Deno.serve(async (request: Request) => {
       .download(row.storage_path)
 
     if (downloadError || !file) {
-      throw new ProviderError('missing_file', downloadError?.message ?? 'No object.')
+      throw new ProviderError('missing_file', 'Could not download the receipt object.')
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer())
@@ -236,12 +241,12 @@ Deno.serve(async (request: Request) => {
     const raw = await extractReceipt(bytes, sniffed)
     const extraction = parseReceiptExtraction(raw)
 
-    // Schema-shaped but not usable — no legible product on the receipt, or a
-    // reply that did not survive validation. Either way this receipt was not
-    // read, and saying so is more useful than storing something hollow.
+    // An empty selection is a supported provider outcome. Malformed output or
+    // nonempty candidates that all fail validation are a different failure.
+    // Neither result is stored as a completed extraction.
     if (!extraction) {
       throw new ProviderError(
-        'no_product_found',
+        getExtractionFailureReason(raw),
         `Extraction failed validation. ${describeExtractionShape(raw)}`,
       )
     }
@@ -256,20 +261,22 @@ Deno.serve(async (request: Request) => {
       .eq('id', receiptId)
 
     if (saveError) {
-      console.error('[parse-receipt] could not save extraction', saveError.message)
-      throw new ProviderError('save_failed', saveError.message)
+      throw new ProviderError('save_failed', 'Could not save the extraction.')
     }
 
     return json(200, { status: 'completed', extraction })
   } catch (cause) {
     const reason = cause instanceof ProviderError ? cause.reason : 'unexpected_error'
 
-    // The detail is for this log line only. It can name provider internals
-    // and request state, so it does not go into the row or the response.
-    console.error(`[parse-receipt] ${receiptId} failed: ${reason}`, String(cause))
+    // Only ProviderError has deliberately constructed, content-free details.
+    // Unexpected errors and upstream response messages may contain receipts.
+    console.error(
+      `[parse-receipt] ${receiptId} failed: ${reason}`,
+      cause instanceof ProviderError ? cause.message : 'Unexpected receipt reader failure.',
+    )
 
     await markFailed(client, receiptId, reason)
 
-    return json(502, { status: 'failed', reason })
+    return json(reason === 'no_product_found' ? 422 : 502, { status: 'failed', reason })
   }
 })

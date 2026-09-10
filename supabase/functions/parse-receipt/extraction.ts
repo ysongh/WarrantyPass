@@ -150,41 +150,54 @@ function parseCandidate(value: unknown): ReceiptProductCandidate | null {
 }
 
 /**
- * Validates a parsed-JSON value against the extraction schema, returning
- * `null` for anything that does not fit. Partial credit is deliberately not on
- * offer: half-understood output would prefill a form with values nobody can
- * account for.
- */
-/**
  * Describes the *shape* of a reply that failed validation, for the log line.
  *
- * Presence and counts only — never a value. "Which fields came back" is what
- * tells you whether a rejection was the model's reading or our own rule, and
- * it is exactly the thing a plain `no_product_found` does not say. Receipt
- * contents must never reach a log.
+ * Fixed field names, types, nonblank flags and counts only — never a value.
+ * Inspect only the candidates considered by the validator, so an oversized
+ * response cannot produce an unbounded log. Receipt contents stay private.
  */
 export function describeExtractionShape(value: unknown): string {
+  const typeOf = (field: unknown): string =>
+    field === null ? 'null' : Array.isArray(field) ? 'array' : typeof field
+
   const record = asRecord(value)
-  if (!record) return `not-an-object(${typeof value})`
+  if (!record) return `not-an-object(${typeOf(value)})`
 
   if (!Array.isArray(record.products)) {
-    return `products-not-an-array(${typeof record.products})`
+    return `products-not-an-array(${typeOf(record.products)})`
   }
 
-  const shapes = record.products.map((entry) => {
+  const shapes = record.products.slice(0, MAX_CANDIDATES).map((entry) => {
     const candidate = asRecord(entry)
-    if (!candidate) return 'non-object'
+    if (!candidate) return `non-object(${typeOf(entry)})`
 
-    const present = (['brand', 'model', 'description', 'price'] as const)
-      .filter((key) => candidate[key] !== null && candidate[key] !== undefined)
-      .join('+')
+    const names = (['brand', 'model', 'description'] as const).map(
+      (key) => `${key}=${typeOf(candidate[key])}(nonblank=${asText(candidate[key]) !== null})`,
+    )
 
-    return present || 'empty'
+    return `${names.join('+')}+price=${typeOf(candidate.price)}`
   })
 
   return `products=${record.products.length}[${shapes.join(', ')}]`
 }
 
+/** Called only after validation fails; an empty selection is a distinct outcome. */
+export function getExtractionFailureReason(
+  value: unknown,
+): 'no_product_found' | 'invalid_extraction' {
+  const record = asRecord(value)
+
+  return record && Array.isArray(record.products) && record.products.length === 0
+    ? 'no_product_found'
+    : 'invalid_extraction'
+}
+
+/**
+ * Validates a parsed-JSON value against the extraction schema, returning
+ * `null` for anything that does not fit. Partial credit is deliberately not on
+ * offer: half-understood output would prefill a form with values nobody can
+ * account for.
+ */
 export function parseReceiptExtraction(value: unknown): ReceiptExtraction | null {
   const record = asRecord(value)
   if (!record) return null

@@ -74,6 +74,10 @@ function ReceiptUploader({ onSelect, disabled }: Props) {
           Upload a clear photo of your receipt and we'll fill in the product
           details for you to check.
         </p>
+        <p className="mx-auto mt-3 max-w-sm text-sm text-ink-muted text-pretty">
+          Scanning looks for electronics, appliances, tools and furniture.
+          Groceries, other consumables and services are skipped.
+        </p>
 
         <Button
           className="mt-6"

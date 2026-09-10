@@ -427,7 +427,9 @@ const PARSE_FAILURE_COPY: Record<string, string> = {
   unsupported_media: "That file isn't an image we can read.",
   missing_file: "We couldn't find that receipt file. Try uploading it again.",
   no_product_found:
-    "We couldn't find a product on that receipt. Check the whole receipt is in frame, or enter the details yourself.",
+    "We couldn't identify a durable product on this receipt. Scanning skips groceries, other consumables and services. You can enter the product details manually to continue.",
+  invalid_extraction:
+    'The receipt reader returned unusable product details. Try again, or enter the details yourself.',
   rate_limited: 'Too many receipts at once. Wait a moment and try again.',
   timeout: 'Reading that receipt took too long. Try again.',
   declined: "We couldn't read this receipt.",
@@ -480,7 +482,7 @@ export async function parseReceipt(
     // token, which is the only thing that says *why* — worth the unwrap.
     const reason = await readFailureReason(error)
 
-    console.error(`[receipts: Parsing receipt] failed: ${reason}`, error)
+    console.error(`[receipts: Parsing receipt] failed: ${reason}`)
     throw new Error(PARSE_FAILURE_COPY[reason] ?? PARSE_FAILURE_COPY.default)
   }
 

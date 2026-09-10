@@ -127,6 +127,11 @@ function AddProductFlow() {
             or type them in yourself. Either way, only you can see this product.
           </Intro>
 
+          <p className="mt-3 max-w-2xl text-sm text-ink-muted text-pretty">
+            Scanning looks for durable products such as electronics, appliances,
+            tools and furniture. It skips groceries, other consumables and services.
+          </p>
+
           <div className="mt-8 grid gap-4 sm:max-w-lg">
             <Button onClick={() => setStage({ kind: 'select' })}>
               Scan receipt
@@ -181,7 +186,7 @@ function AddProductFlow() {
     case 'reading':
       return (
         <>
-          <Intro>Nothing is saved until you've checked the details.</Intro>
+          <Intro>Your receipt is saved privately. Next, you'll check the product details.</Intro>
           <div className="mt-8">
             <ReceiptParsingState />
           </div>
@@ -191,7 +196,7 @@ function AddProductFlow() {
     case 'review':
       return (
         <>
-          <Intro>Nothing is saved until you've checked the details.</Intro>
+          <Intro>Check the extracted details before creating your product.</Intro>
 
           <div className="mt-8">
             <ReceiptExtractionReview
@@ -219,7 +224,12 @@ function AddProductFlow() {
 
           <div className="mt-8">
             <div className="rounded-card border border-line bg-surface p-6 sm:p-8">
-              <h2 className="text-lg font-semibold text-ink">{UNREADABLE}</h2>
+              <h2 className="text-lg font-semibold text-ink">
+                {stage.receipt ? 'Your receipt is saved' : "We couldn't upload this receipt"}
+              </h2>
+              <p role="alert" className="mt-2 text-ink-muted text-pretty">
+                {stage.message}
+              </p>
               <p className="mt-2 text-ink-muted text-pretty">
                 {stage.receipt
                   ? "Your receipt is saved and will still be attached to the product if you carry on manually."

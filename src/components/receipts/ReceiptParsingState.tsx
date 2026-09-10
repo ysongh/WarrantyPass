@@ -24,8 +24,8 @@ function ReceiptParsingState() {
 
         <p className="mt-5 font-medium text-ink">Reading your receipt…</p>
         <p className="mt-2 text-sm text-ink-muted text-pretty">
-          This usually takes a few seconds. You'll get to check everything
-          before anything is saved.
+          This usually takes a few seconds. You'll get to check the details
+          before your product is created.
         </p>
       </div>
     </div>
