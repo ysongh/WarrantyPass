@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
 import {
   createReceipt,
@@ -76,21 +76,4 @@ export function useReceiptViewUrl() {
   return useMutation<string, Error, string>({
     mutationFn: createReceiptViewUrl,
   })
-}
-
-/**
- * Invalidates the receipt cached against a product. Called after creating a
- * product with a receipt, so the detail page shows it immediately.
- */
-export function useInvalidateProductReceipt() {
-  const queryClient = useQueryClient()
-  const { userId } = useAuthSession()
-
-  return (productId: string) => {
-    if (!userId) return
-
-    void queryClient.invalidateQueries({
-      queryKey: receiptKeys.forProduct(userId, productId),
-    })
-  }
 }

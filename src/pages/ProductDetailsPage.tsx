@@ -6,6 +6,8 @@ import WarrantyStatusBadge from '../components/products/WarrantyStatusBadge'
 import Button from '../components/ui/Button'
 import ButtonLink from '../components/ui/ButtonLink'
 import { useProduct } from '../hooks/useProducts'
+import { useProductReceipt, useReceiptViewUrl } from '../hooks/useReceipts'
+import { formatPrice } from '../lib/money'
 import { formatIsoDate } from '../lib/warrantyDates'
 import { formatDaysRemaining, getWarrantyStatus } from '../lib/warrantyStatus'
 import {
@@ -20,20 +22,6 @@ import {
  */
 function maskSerial(serial: string): string {
   return serial.length > 4 ? `••••••••${serial.slice(-4)}` : '••••••••'
-}
-
-function formatPrice(amount: number | null, currency: string): string | null {
-  if (amount === null) return null
-
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency,
-    }).format(amount)
-  } catch {
-    // An unexpected currency code should not take the page down with it.
-    return `${amount.toFixed(2)} ${currency}`
-  }
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -70,6 +58,79 @@ function SerialNumber({ serial }: { serial: string }) {
         {revealed ? 'Hide' : 'Show'}
       </button>
     </div>
+  )
+}
+
+/**
+ * The private receipt, for the owner only.
+ *
+ * Renders nothing at all when the product has no receipt, rather than an empty
+ * "no receipt" row: a manually entered product is not missing anything.
+ *
+ * Viewing goes through a signed URL minted on click and held in component
+ * state — never persisted, never in the page's markup until the owner asks for
+ * it, and expired within a minute. This section has no counterpart on
+ * `/verify/:id`, and must not gain one: a receipt can carry a name, an address,
+ * an order number and the last four digits of a card.
+ */
+function ReceiptSection({ product }: { product: ProductWithWarranty }) {
+  const { data: receipt, isPending } = useProductReceipt(product.id)
+  const viewUrl = useReceiptViewUrl()
+  const [url, setUrl] = useState<string | null>(null)
+
+  if (isPending || !receipt) return null
+
+  return (
+    <section className="rounded-card border border-line bg-surface p-6 sm:p-8">
+      <h2 className="text-lg font-semibold text-ink">Receipt</h2>
+
+      <div className="mt-6 space-y-1">
+        {product.retailer && <p className="text-ink">{product.retailer}</p>}
+        <p className="text-ink-muted">{formatIsoDate(product.purchaseDate)}</p>
+      </div>
+
+      <p className="mt-4 text-sm font-medium text-success-700">
+        Receipt stored securely ✓
+      </p>
+
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        {url ? (
+          <Button variant="secondary" onClick={() => setUrl(null)}>
+            Hide receipt
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            disabled={viewUrl.isPending}
+            onClick={() => {
+              viewUrl.mutate(receipt.storagePath, { onSuccess: setUrl })
+            }}
+          >
+            {viewUrl.isPending ? 'Opening…' : 'View receipt'}
+          </Button>
+        )}
+      </div>
+
+      {viewUrl.error && (
+        <p role="alert" className="mt-4 text-sm font-medium text-danger-700">
+          {viewUrl.error.message}
+        </p>
+      )}
+
+      {url && (
+        <div className="mt-6 flex justify-center rounded-card bg-canvas p-4">
+          <img
+            src={url}
+            alt="Your stored receipt"
+            className="max-h-[32rem] w-auto max-w-full rounded object-contain"
+          />
+        </div>
+      )}
+
+      <p className="mt-6 text-sm text-ink-muted text-pretty">
+        Only you can see this. It is never shown on a public page.
+      </p>
+    </section>
   )
 }
 
@@ -115,6 +176,8 @@ function ProductDetails({ product }: { product: ProductWithWarranty }) {
             <Detail label="Warranty">No warranty on record.</Detail>
           )}
         </Section>
+
+        <ReceiptSection product={product} />
 
         <Section title="Private">
           <Detail label="Serial number">

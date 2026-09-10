@@ -7,7 +7,7 @@ ownership, receipts, warranties, repairs, and ownership transfers.
 
 ## Status
 
-**Phase 2 — offchain product records (complete).**
+**Phase 3 — private receipts (complete).**
 
 Phase 1 foundation:
 
@@ -18,7 +18,7 @@ Phase 1 foundation:
 - Supabase client foundation
 - Wallet connectivity (wagmi + viem, Sepolia)
 
-Phase 2 adds:
+Phase 2 added:
 
 - Anonymous Supabase authentication, persisted across reloads
 - `products` and `warranties` tables with row-level security
@@ -27,10 +27,24 @@ Phase 2 adds:
 - A dashboard with warranty status, filters, and loading/empty/error states
 - A product detail page, with the serial number masked
 
-No receipts, no AI, no smart contracts, no ENS, and no transfers yet.
+Phase 3 adds:
 
-**Setup requires one dashboard toggle:** anonymous sign-ins must be enabled on
-the Supabase project, and the migration must be applied. See
+- A `receipts` table and a **private** Storage bucket, both under row-level
+  security, with objects confined to their owner's folder
+- Receipt upload with magic-byte validation and a SHA-256 of the original bytes
+- Receipt reading by an Edge Function that calls Claude vision server-side —
+  the API key never reaches the browser
+- A review step where the user picks the right product and corrects anything
+  before saving; warranty terms are always entered by hand
+- Atomic receipt attachment in the same transaction that creates the product
+- The receipt shown privately on the product page behind a short-lived signed URL
+
+No smart contracts, no ENS, no transfers, and nothing onchain yet — the receipt
+hash is stored but not anchored.
+
+**Setup needs a dashboard toggle and a secret:** anonymous sign-ins must be
+enabled on the Supabase project, the migrations must be applied, and the AI
+provider key must be set as an Edge Function secret. See
 [`docs/data-model.md`](docs/data-model.md).
 
 ## Wallet
@@ -58,6 +72,17 @@ and is publicly readable.** Only public configuration belongs there — never a
 service-role key or any private API key. Access to data is expected to be
 restricted by row-level security, not by keeping the anon key secret.
 
+The AI provider key is deliberately **not** in this table. It is an Edge
+Function secret, set from a shell and held only by Supabase:
+
+```bash
+supabase secrets set ANTHROPIC_API_KEY=...
+```
+
+Giving it a `VITE_` prefix would compile it into the bundle for anyone to read.
+The browser never calls an AI provider; it calls
+[`parse-receipt`](supabase/functions/parse-receipt/), which holds the key.
+
 The app runs without these set: [`src/lib/supabase.ts`](src/lib/supabase.ts)
 exports `supabase` as `null` and `isSupabaseConfigured` as `false`, and warns
 once in the dev console. Check the flag before using the client. Product pages
@@ -69,19 +94,32 @@ an empty account.
 Schema, row-level security, the anonymous auth model, and how to apply
 migrations are documented in [`docs/data-model.md`](docs/data-model.md).
 
-Two things are required before product features work:
+Three things are required before product features work:
 
 1. **Enable anonymous sign-ins** in the Supabase dashboard under
    Authentication → Sign In / Providers. The `enable_anonymous_sign_ins = true`
    in [`supabase/config.toml`](supabase/config.toml) applies only to a local
    `supabase start` — it does not configure a hosted project.
-2. **Apply the migration**, with `supabase db push` against a linked project,
+2. **Apply the migrations**, with `supabase db push` against a linked project,
    `supabase db reset` locally, or by pasting
-   [the migration](supabase/migrations/) into the SQL editor.
+   [the migrations](supabase/migrations/) into the SQL editor.
+3. **Deploy the receipt parser** and give it a key, for receipt scanning:
+   ```bash
+   supabase secrets set ANTHROPIC_API_KEY=...
+   supabase functions deploy parse-receipt
+   ```
+
+Then confirm in the dashboard that **Storage → `receipts` is Private**. The
+migration creates it that way, but a public receipts bucket would serve every
+stored receipt to anyone holding a URL, so it is worth one glance.
 
 Rows are owned by an anonymous Supabase user's `auth.uid()`. **A connected
 wallet address is not an authorization identity** — the browser claiming an
 address proves nothing to Postgres. Never filter or write a policy on one.
+
+The same holds for the Edge Function: it authenticates the caller from their own
+Supabase token and uses no service-role key, so row-level security is the single
+boundary everywhere.
 
 ## Routes
 
@@ -93,7 +131,7 @@ Client-side routing via React Router. Page components live in
 | ------------------------ | ----------------------- | ------------------------------ | ----------- |
 | `/`                      | `HomePage`              | Landing page                   | Built       |
 | `/dashboard`             | `DashboardPage`         | The user's WarrantyPasses      | Built       |
-| `/products/new`          | `AddProductPage`        | Add a product                  | Built       |
+| `/products/new`          | `AddProductPage`        | Add a product — scan or manual | Built       |
 | `/products/:id`          | `ProductDetailsPage`    | WarrantyPass detail            | Built       |
 | `/products/:id/transfer` | `TransferProductPage`   | Ownership transfer             | Placeholder |
 | `/verify/:id`            | `VerifyProductPage`     | Public verification            | Placeholder |
@@ -104,9 +142,10 @@ Client-side routing via React Router. Page components live in
 row-level security is what protects it, and a product belonging to someone else
 is indistinguishable from one that does not exist.
 
-`/verify/:id` reads nothing from the database. It stays a placeholder until
-public verification has a deliberate public-data model — see
-[`docs/data-model.md`](docs/data-model.md).
+`/verify/:id` reads nothing from the database and shows no receipt. It stays a
+placeholder until public verification has a deliberate public-data model — see
+[`docs/data-model.md`](docs/data-model.md). Do not make it work by relaxing
+row-level security or exposing a receipt.
 
 Every route renders inside `AppLayout`
 ([`src/components/layout/`](src/components/layout/)), which is wired as a

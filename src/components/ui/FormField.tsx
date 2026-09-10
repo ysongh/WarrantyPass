@@ -20,11 +20,20 @@ type ShellProps = {
   label: string
   hint?: string
   error?: string
+  notice?: string
   optional?: boolean
   children: ReactNode
 }
 
-function FieldShell({ id, label, hint, error, optional, children }: ShellProps) {
+function FieldShell({
+  id,
+  label,
+  hint,
+  error,
+  notice,
+  optional,
+  children,
+}: ShellProps) {
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-ink">
@@ -42,6 +51,18 @@ function FieldShell({ id, label, hint, error, optional, children }: ShellProps) 
         </p>
       )}
 
+      {/*
+       * A third state, between hint and error: the value is usable but
+       * something about it is worth a second look. Shown alongside an error
+       * rather than instead of it — "please verify" and "this is invalid" are
+       * different things and the user may need to see both.
+       */}
+      {notice && (
+        <p id={`${id}-notice`} className="mt-1.5 text-sm font-medium text-warning-700">
+          {notice}
+        </p>
+      )}
+
       {error && (
         <p id={`${id}-error`} className="mt-1.5 text-sm font-medium text-danger-700">
           {error}
@@ -51,10 +72,15 @@ function FieldShell({ id, label, hint, error, optional, children }: ShellProps) 
   )
 }
 
-function describedBy(id: string, hint?: string, error?: string) {
-  if (error) return `${id}-error`
-  if (hint) return `${id}-hint`
-  return undefined
+function describedBy(id: string, hint?: string, error?: string, notice?: string) {
+  const ids: string[] = []
+
+  if (error) ids.push(`${id}-error`)
+  else if (hint) ids.push(`${id}-hint`)
+
+  if (notice) ids.push(`${id}-notice`)
+
+  return ids.length > 0 ? ids.join(' ') : undefined
 }
 
 type TextFieldProps = Omit<ComponentProps<'input'>, 'id'> & {
@@ -62,6 +88,7 @@ type TextFieldProps = Omit<ComponentProps<'input'>, 'id'> & {
   label: string
   hint?: string
   error?: string
+  notice?: string
   optional?: boolean
 }
 
@@ -70,16 +97,24 @@ export function TextField({
   label,
   hint,
   error,
+  notice,
   optional,
   className = '',
   ...props
 }: TextFieldProps) {
   return (
-    <FieldShell id={id} label={label} hint={hint} error={error} optional={optional}>
+    <FieldShell
+      id={id}
+      label={label}
+      hint={hint}
+      error={error}
+      notice={notice}
+      optional={optional}
+    >
       <input
         id={id}
         aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy(id, hint, error)}
+        aria-describedby={describedBy(id, hint, error, notice)}
         className={`${controlClass} ${borderClass(Boolean(error))} ${className}`}
         {...props}
       />

@@ -7,12 +7,19 @@ import Button from '../ui/Button'
 import { SelectField, TextField } from '../ui/FormField'
 
 /*
- * Manual product entry.
+ * Product entry — the only product form there is.
  *
- * Everything is typed by hand in phase 2 — receipt upload and parsing come
- * later. The form is deliberately forgiving: it validates on submit rather than
- * on every keystroke, keeps whatever the user typed when the save fails, and
- * never guesses a value the user has not confirmed.
+ * Both flows converge here. A scanned receipt arrives as `defaults`, which
+ * seed the fields; typed entry is the same form with none. The form is
+ * deliberately forgiving: it validates on submit rather than on every
+ * keystroke, keeps whatever the user typed when the save fails, and never
+ * guesses a value the user has not confirmed.
+ *
+ * Note what a receipt can and cannot seed. Product facts, yes — brand, model,
+ * retailer, date, price, serial. Warranty terms, never: coverage length,
+ * issuer and transferability are asked of the user in both flows, because a
+ * receipt that happens to print "1 year warranty" is not the manufacturer's
+ * policy and we are not going to file it as one.
  */
 
 type DurationPreset = '90d' | '1y' | '2y' | '3y' | 'custom'
@@ -73,20 +80,33 @@ const FIELD_ORDER: readonly FieldName[] = [
   'warrantyEndDate',
 ]
 
-function initialValues(): Values {
-  const today = todayIsoDate()
+/**
+ * The fields a scan can fill in. Deliberately a subset of `Values`: there is
+ * no warranty field here, and adding one would be the bug.
+ */
+export type ProductFormDefaults = Partial<
+  Pick<
+    Values,
+    'brand' | 'model' | 'retailer' | 'purchaseDate' | 'purchasePrice' | 'serialNumber'
+  >
+>
+
+function initialValues(defaults: ProductFormDefaults): Values {
+  // A scanned purchase date is a better starting point than today, and
+  // coverage starts from the purchase unless the user says otherwise.
+  const purchaseDate = defaults.purchaseDate ?? todayIsoDate()
 
   return {
-    brand: '',
-    model: '',
-    retailer: '',
-    purchaseDate: today,
-    purchasePrice: '',
-    serialNumber: '',
+    brand: defaults.brand ?? '',
+    model: defaults.model ?? '',
+    retailer: defaults.retailer ?? '',
+    purchaseDate,
+    purchasePrice: defaults.purchasePrice ?? '',
+    serialNumber: defaults.serialNumber ?? '',
     warrantyIssuer: '',
     // Defaults to the purchase date, and follows it until the user edits it.
-    warrantyStartDate: today,
-    warrantyEndDate: addMonths(today, 12) ?? '',
+    warrantyStartDate: purchaseDate,
+    warrantyEndDate: addMonths(purchaseDate, 12) ?? '',
     transferability: 'unknown',
   }
 }
@@ -128,7 +148,7 @@ function validate(values: Values): Errors {
   return errors
 }
 
-function toInput(values: Values): CreateProductInput {
+function toInput(values: Values, currency: string): CreateProductInput {
   const price = values.purchasePrice.trim()
 
   return {
@@ -138,7 +158,7 @@ function toInput(values: Values): CreateProductInput {
     purchaseDate: values.purchaseDate,
     purchasePrice: price ? Number(price) : null,
     serialNumber: values.serialNumber.trim() || null,
-    currency: 'USD',
+    currency,
     warrantyIssuer: values.warrantyIssuer.trim() || null,
     warrantyStartDate: values.warrantyStartDate,
     warrantyEndDate: values.warrantyEndDate,
@@ -146,20 +166,44 @@ function toInput(values: Values): CreateProductInput {
   }
 }
 
+const VERIFY_NOTICE = 'Please verify this value.'
+
 type Props = {
   onSubmit: (input: CreateProductInput) => void
   isSubmitting: boolean
   submitError?: string | null
+  /** Seeds from a scanned receipt. Absent fields keep the form's own defaults. */
+  defaults?: ProductFormDefaults
+  /** Marked "please verify" — never blocked, the user is the authority. */
+  lowConfidenceFields?: readonly (keyof ProductFormDefaults)[]
+  /**
+   * From the receipt when it named one, so a euro purchase is not filed as
+   * dollars. Not a form field: a receipt states its own currency and typed
+   * entry has always been USD.
+   */
+  currency?: string
 }
 
-function ProductForm({ onSubmit, isSubmitting, submitError }: Props) {
-  const [values, setValues] = useState<Values>(initialValues)
+function ProductForm({
+  onSubmit,
+  isSubmitting,
+  submitError,
+  defaults = {},
+  lowConfidenceFields = [],
+  currency = 'USD',
+}: Props) {
+  const [values, setValues] = useState<Values>(() => initialValues(defaults))
   const [errors, setErrors] = useState<Errors>({})
   const [preset, setPreset] = useState<DurationPreset>('1y')
   // Once the user edits the start date themselves, it stops tracking the
   // purchase date — changing the purchase date should not silently overwrite a
   // coverage date they deliberately set.
   const [startDateEdited, setStartDateEdited] = useState(false)
+
+  /** A "please verify" note for a field the parser was unsure about. */
+  function noticeFor(field: keyof ProductFormDefaults): string | undefined {
+    return lowConfidenceFields.includes(field) ? VERIFY_NOTICE : undefined
+  }
 
   function update(field: TextFieldName, value: string) {
     setValues((previous) => ({ ...previous, [field]: value }))
@@ -221,7 +265,7 @@ function ProductForm({ onSubmit, isSubmitting, submitError }: Props) {
       return
     }
 
-    onSubmit(toInput(values))
+    onSubmit(toInput(values, currency))
   }
 
   return (
@@ -243,6 +287,7 @@ function ProductForm({ onSubmit, isSubmitting, submitError }: Props) {
             placeholder="Sony"
             value={values.brand}
             error={errors.brand}
+            notice={noticeFor('brand')}
             onChange={(event) => update('brand', event.target.value)}
           />
 
@@ -254,6 +299,7 @@ function ProductForm({ onSubmit, isSubmitting, submitError }: Props) {
             placeholder="WH-1000XM6"
             value={values.model}
             error={errors.model}
+            notice={noticeFor('model')}
             onChange={(event) => update('model', event.target.value)}
           />
 
@@ -264,6 +310,7 @@ function ProductForm({ onSubmit, isSubmitting, submitError }: Props) {
             type="date"
             value={values.purchaseDate}
             error={errors.purchaseDate}
+            notice={noticeFor('purchaseDate')}
             onChange={(event) => handlePurchaseDateChange(event.target.value)}
           />
 
@@ -275,6 +322,7 @@ function ProductForm({ onSubmit, isSubmitting, submitError }: Props) {
             placeholder="Best Buy"
             value={values.retailer}
             error={errors.retailer}
+            notice={noticeFor('retailer')}
             onChange={(event) => update('retailer', event.target.value)}
           />
 
@@ -287,9 +335,10 @@ function ProductForm({ onSubmit, isSubmitting, submitError }: Props) {
             min="0"
             step="0.01"
             placeholder="449.99"
-            hint="USD"
+            hint={currency}
             value={values.purchasePrice}
             error={errors.purchasePrice}
+            notice={noticeFor('purchasePrice')}
             onChange={(event) => update('purchasePrice', event.target.value)}
           />
 
@@ -302,6 +351,7 @@ function ProductForm({ onSubmit, isSubmitting, submitError }: Props) {
             hint="Kept private to you and hidden by default."
             value={values.serialNumber}
             error={errors.serialNumber}
+            notice={noticeFor('serialNumber')}
             onChange={(event) => update('serialNumber', event.target.value)}
           />
         </div>

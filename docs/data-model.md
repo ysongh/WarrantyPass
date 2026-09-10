@@ -1,12 +1,13 @@
 # WarrantyPass data model
 
-How products and warranties are stored, who is allowed to read them, and how to
-apply the schema. The migration in
-[`supabase/migrations/`](../supabase/migrations/) is the source of truth; this
-document explains the reasoning behind it.
+How products, warranties and receipts are stored, who is allowed to read them,
+and how to apply the schema. The migrations in
+[`supabase/migrations/`](../supabase/migrations/) are the source of truth; this
+document explains the reasoning behind them.
 
-**Status:** Phase 2. Products, warranties, anonymous auth, and row-level
-security. No receipts, no storage buckets, no onchain data.
+**Status:** Phase 3. Products, warranties, receipts, anonymous auth, row-level
+security, and a private Storage bucket. No onchain data — `receipt_hash` is
+computed and stored, but nothing anchors it yet.
 
 ---
 
@@ -56,6 +57,29 @@ cp .env.example .env
 `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` only. Both are public and
 compiled into the bundle. **A service-role key must never appear in any `VITE_`
 variable** — it bypasses every policy below.
+
+### 4. Deploy the receipt parser
+
+Receipt scanning needs an Edge Function and one secret. The secret is set from a
+shell and lives only on Supabase:
+
+```bash
+supabase secrets set ANTHROPIC_API_KEY=...
+supabase functions deploy parse-receipt
+```
+
+**The AI key is never a `VITE_` variable and never appears in `.env.example`.**
+The browser must not call an AI provider directly; it calls this function, which
+holds the key server-side. Deploying does not need Docker — the "Docker is not
+running" warning during deploy is harmless.
+
+### 5. Confirm the bucket is private
+
+After `supabase db push`, check **Storage** in the dashboard: there should be a
+`receipts` bucket marked **Private**. The migration creates it, but bucket and
+`storage.objects` policy statements are the part most likely to be rejected on
+permissions grounds, and a public receipts bucket would serve every stored
+receipt to anyone holding a URL.
 
 ---
 
@@ -155,6 +179,44 @@ protection plans would be a deliberate schema change, not an accident.
 does not know the manufacturer's policy, and `unknown` is the honest answer.
 Storing `false` for "not sure" would be a fabricated claim about the product.
 
+### `receipts`
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | `uuid` pk | Generated **in the browser** so the storage path can contain it. |
+| `user_id` | `uuid` | → `auth.users(id)`, `on delete cascade`. The owner. |
+| `product_id` | `uuid` null | → `products(id)`, `on delete cascade`. Null while it is a draft. |
+| `storage_path` | `text` unique | `<uid>/<receipt id>/receipt.<ext>` in the private bucket. |
+| `original_filename` | `text` | Display only. Never used to build the path. |
+| `mime_type` | `text` | The **sniffed** type, not what the browser claimed. |
+| `size_bytes` | `bigint` | `> 0` and `<= 10 MiB`. |
+| `receipt_hash` | `text` null | SHA-256 of the original raw bytes, lowercase hex. |
+| `extraction_status` | `text` | `pending` \| `processing` \| `completed` \| `failed`. |
+| `extraction_data` | `jsonb` null | Structured extraction. Never a raw provider response. |
+| `extraction_error` | `text` null | A short sanitized reason token, ≤ 500 chars. |
+| `created_at` / `updated_at` | `timestamptz` | `updated_at` maintained by the shared trigger. |
+
+`product_id` is **nullable**, which is the whole reason this table can exist: a
+receipt is uploaded and parsed *before* the product does, so it spends the
+entire scan flow unattached. A partial unique index —
+`unique (product_id) where product_id is not null` — allows any number of
+drafts while keeping at most one receipt per product.
+
+Two constraints are worth knowing about because they encode rules rather than
+types:
+
+- `receipts_storage_path_owned` requires `storage_path` to start with
+  `<user_id>/<id>/`. The storage policies independently require the first
+  folder to be `auth.uid()`, so a row can neither *point* outside its owner's
+  folder nor *read* outside it, and neither check is the only one holding.
+- `receipts_completed_has_data` requires `extraction_data` to be non-null
+  whenever the status is `completed`, so no consumer has to branch on a
+  "successful" parse that produced nothing.
+
+The cascade from `products` deletes the row but **cannot reach Storage** —
+Postgres has no way to remove the object. Nothing triggers this yet (there is no
+product deletion), and whichever phase adds it owns deleting the object first.
+
 ### Status is derived, never stored
 
 There is no `status` column. `active` / `expiring` / `expired` is computed from
@@ -218,8 +280,84 @@ exists (
 Access is derived from the product rather than duplicated onto a `user_id`
 column, so a warranty can never disagree with its product about who owns it.
 
+`receipts` — the same four operations on `user_id = (select auth.uid())`, like
+`products`. The insert and update policies carry a second condition:
+
+```sql
+product_id is null
+or exists (
+  select 1 from public.products p
+  where p.id = receipts.product_id
+    and p.user_id = (select auth.uid())
+)
+```
+
+Without it a user could file their own receipt row against **someone else's**
+`product_id`, and hand themselves a foothold the moment any future feature reads
+receipts through a product. The `EXISTS` is itself evaluated under the `products`
+policies, so it can only ever see the caller's own products.
+
 `auth.uid()` is wrapped in a scalar subquery in every policy so Postgres
 evaluates it once per statement instead of once per row.
+
+---
+
+## Storage
+
+The `receipts` bucket is created by the migration rather than through the
+dashboard, so the configuration is reproducible: `public = false`, a 10 MiB
+`file_size_limit`, and `allowed_mime_types` of JPEG, PNG and WebP. The insert is
+wrapped in `on conflict (id) do update` so it converges rather than failing if
+the bucket already exists — and re-asserts `public = false` if it was created
+wrong.
+
+**A public bucket would be the whole ballgame.** It serves every object to
+anyone holding the URL, and a receipt path contains a uid and a receipt id, both
+of which appear in application state. Reads go through short-lived signed URLs
+instead.
+
+### Object paths
+
+```text
+<auth.uid()>/<receipt id>/receipt.jpg
+```
+
+Two UUIDs and a fixed filename. **Never** the original filename, an email, a
+serial number, a retailer, a wallet address or a name — a storage path is not a
+private place to put things. The extension comes from the sniffed media type,
+not from what the file was called.
+
+### Object policies
+
+Three policies on `storage.objects` — `select`, `insert`, `delete` — each
+requiring both:
+
+```sql
+bucket_id = 'receipts'
+and (storage.foldername(name))[1] = (select auth.uid())::text
+and array_length(storage.foldername(name), 1) = 2
+```
+
+The first folder must be the caller's own uid, which is what confines each user
+to their own receipts. The length check pins the layout to exactly one folder
+per user and one per receipt, so there are no objects at the bucket root and no
+deeper trees to reason about. There is deliberately **no blanket
+authenticated-read policy** — that would let every signed-in user read every
+other user's receipts.
+
+There is also **no `UPDATE` policy**, because nothing overwrites a receipt
+object. Every upload attempt mints a fresh receipt id and therefore a fresh
+path, which is why uploads pass `upsert: false`; an upsert would be rejected
+here rather than silently replacing a file a hash was taken of.
+
+### Reading a receipt back
+
+The owner views their receipt through a signed URL minted on click with a
+60-second lifetime. It is never written to the database, never cached in a query
+client, and never rendered into the page until the owner asks for it. Supabase
+issues it only if the storage policies would have allowed that caller to read
+the object, so authorization still happens at the boundary rather than in the
+app.
 
 ### Consequences worth knowing
 
@@ -248,10 +386,42 @@ not expose it.
 
 ### `create_product_with_warranty(...)`
 
-Creating a WarrantyPass writes two rows. As two REST calls, a failure on the
-second leaves a product with no warranty. This function does both inserts in one
-transaction — either both land or neither does — and returns
-`(product_id, public_id)` so the app can navigate straight to the new product.
+Creating a WarrantyPass writes two rows, and for a scanned product it must also
+claim a third. As separate REST calls, a failure part-way leaves a product with
+no warranty, or a product whose receipt never got attached. This function does
+all of it in one transaction — either everything lands or nothing does — and
+returns `(product_id, public_id)` so the app can navigate straight to the new
+product.
+
+The optional `p_receipt_id` attaches a receipt with a guarded update:
+
+```sql
+update public.receipts set product_id = v_product_id
+where id = p_receipt_id
+  and user_id = v_user_id
+  and product_id is null;
+
+if not found then
+  raise exception '...' using errcode = 'WP001';
+end if;
+```
+
+Every condition is a rule. RLS already hides another user's row, so the
+ownership test is belt and braces — but `product_id is null` is the only thing
+stopping a receipt being moved off the product it already proves. Raising rolls
+back the product and the warranty too: a product that silently lost its receipt
+is worse than a submission the user can retry.
+
+`WP001` is a project-specific SQLSTATE so the client can tell this apart from a
+generic failure and say something useful. It deliberately does not reuse
+`42501`, which the app already maps to "your session has expired".
+
+Phase 3 changed this function's signature, so the migration **drops it before
+recreating it**. Adding a parameter does not replace a function in Postgres, it
+overloads it, and two overloads reachable by the same named-argument call is
+exactly the ambiguity PostgREST refuses to resolve. Because the new parameter
+has a default, an eleven-argument call still resolves — a frontend deployed
+before the migration keeps working after it.
 
 It is **`SECURITY INVOKER`** (the default, stated explicitly). It runs as the
 calling user, so both inserts are still checked by the policies above. Making it
@@ -277,6 +447,46 @@ Worth re-checking after any change to the schema:
 3. A warranty insert targeting another user's product fails the `EXISTS` check.
 4. Serial numbers do not appear on dashboard cards — only on the detail page,
    masked, behind an explicit Show control.
-5. `/verify/:id` issues no query.
-6. No service-role key appears anywhere in `src/` or in any `VITE_` variable.
+5. `/verify/:id` issues no query, and shows no receipt.
+6. No service-role key appears anywhere in `src/`, in any `VITE_` variable, or
+   in the Edge Function.
 7. Connected wallet state does not appear in any query or policy.
+8. A second browser profile (a different anonymous user) can read neither the
+   receipt row, nor the storage object, nor a signed URL for another user's
+   receipt.
+9. The `receipts` bucket reports **Private** in the dashboard.
+10. No AI provider string reaches the bundle:
+    `grep -ric "anthropic\|x-api-key\|claude-" dist/assets/` is zero.
+11. `parse-receipt` refuses a request with no `Authorization` header, and a
+    request bearing only the anon key (no user session).
+
+---
+
+## The receipt parser
+
+`supabase/functions/parse-receipt` reads one of the caller's own receipts and
+stores a structured extraction against it. Two properties matter here.
+
+**It uses no service-role key.** The function builds its Supabase client from
+the anon key plus the caller's `Authorization` header, so the row read, the
+storage download and the status writes are all checked by exactly the policies
+above. There is no privileged path to re-implement or get wrong.
+
+**It accepts a `receiptId` and nothing else** — never a user id, never a storage
+path. A function that reads whatever path it is handed is a function that reads
+other people's receipts.
+
+The request body is untrusted, but so is the *image*: a receipt is a photograph
+of a document anyone can print, and the system prompt states explicitly that
+text in the image is data to be read and never instructions to follow.
+
+Output is validated twice — in the function before it is written, and in the
+browser on read, because `extraction_data` is unconstrained `jsonb`. Anything
+that fails validation is a failed parse rather than a partial one. The two
+validators are duplicated across the browser and Deno runtimes on purpose;
+change both.
+
+Parsing costs money, so it never runs from a render. A completed receipt with
+valid data short-circuits, and the function claims the row before working
+(`pending`/`failed` → `processing`, with a two-minute staleness window) so two
+invocations cannot read the same image twice.
