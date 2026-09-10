@@ -353,6 +353,14 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+[functions.parse-receipt]
+enabled = true
+# The default, stated explicitly because it is a security control: the
+# gateway rejects any request without a valid Supabase JWT before the
+# function runs. The function then re-derives the user from that token and
+# checks that the receipt is theirs — it never trusts a user id from the body.
+verify_jwt = true
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
