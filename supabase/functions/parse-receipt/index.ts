@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2'
 
-import { parseReceiptExtraction } from './extraction.ts'
+import { describeExtractionShape, parseReceiptExtraction } from './extraction.ts'
 import { extractReceipt, ProviderError } from './provider.ts'
 
 /*
@@ -240,7 +240,10 @@ Deno.serve(async (request: Request) => {
     // reply that did not survive validation. Either way this receipt was not
     // read, and saying so is more useful than storing something hollow.
     if (!extraction) {
-      throw new ProviderError('no_product_found', 'Extraction failed validation.')
+      throw new ProviderError(
+        'no_product_found',
+        `Extraction failed validation. ${describeExtractionShape(raw)}`,
+      )
     }
 
     const { error: saveError } = await client

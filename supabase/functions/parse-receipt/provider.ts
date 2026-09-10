@@ -40,13 +40,18 @@ const MAX_TOKENS = 16000
 const EFFORT = 'medium'
 
 /**
- * Opt in to server-side fallback, so a request the safety classifiers decline
- * is retried on another model instead of surfacing to the user as "we
- * couldn't read this receipt". Receipts are benign, but they are photographs
- * of arbitrary documents, and a false positive should not cost the user their
- * upload. Set to `false` if your organisation does not have the beta enabled.
+ * Server-side fallback retries a request the safety classifiers decline on
+ * another model, instead of surfacing to the user as "we couldn't read this
+ * receipt". Receipts are benign, but they are photographs of arbitrary
+ * documents, and a false positive should not cost the user their upload.
+ *
+ * **Off by default because it is a beta.** An organisation without
+ * `server-side-fallback-2026-07-01` enabled gets the whole request rejected,
+ * not just the fallback ignored — which fails every scan rather than only the
+ * declined ones. Turn it on once you have confirmed the beta is available to
+ * your account.
  */
-const USE_REFUSAL_FALLBACK = true
+const USE_REFUSAL_FALLBACK = false
 
 const REFUSAL_FALLBACK_BETA = 'server-side-fallback-2026-07-01'
 

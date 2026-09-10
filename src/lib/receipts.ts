@@ -412,6 +412,43 @@ export async function createReceipt(file: File): Promise<Receipt> {
 }
 
 /**
+ * Copy for each reason the parser can fail with. The tokens themselves are
+ * ours and carry nothing identifying, but they are not sentences — a user
+ * should not be shown `unsupported_media`.
+ *
+ * Anything unmapped falls back to `default`, so a new reason token degrades to
+ * generic copy rather than to a blank message.
+ */
+const PARSE_FAILURE_COPY: Record<string, string> = {
+  default: "We couldn't read this receipt.",
+  not_configured: 'Receipt scanning is not set up on this project yet.',
+  image_too_large:
+    "That photo is too large to read. Try a smaller or more compressed image.",
+  unsupported_media: "That file isn't an image we can read.",
+  missing_file: "We couldn't find that receipt file. Try uploading it again.",
+  no_product_found:
+    "We couldn't find a product on that receipt. Check the whole receipt is in frame, or enter the details yourself.",
+  rate_limited: 'Too many receipts at once. Wait a moment and try again.',
+  timeout: 'Reading that receipt took too long. Try again.',
+  declined: "We couldn't read this receipt.",
+}
+
+/** Digs the reason token out of a non-2xx `functions.invoke` failure. */
+async function readFailureReason(error: unknown): Promise<string> {
+  const context = (error as { context?: unknown } | null)?.context
+
+  if (!(context instanceof Response)) return 'unknown'
+
+  try {
+    const body = (await context.clone().json()) as { reason?: unknown }
+
+    return typeof body.reason === 'string' ? body.reason : 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
+/**
  * Runs the receipt through the parser and returns the updated row.
  *
  * Already-parsed receipts short-circuit unless `force` is set. This is the
@@ -437,11 +474,14 @@ export async function parseReceipt(
     body: { receiptId },
   })
 
-  // The function's own error text is for the log, not the page: it can describe
-  // provider behaviour and internals. The user gets one sentence and a choice.
   if (error) {
-    console.error('[receipts: Parsing receipt] failed.', error)
-    throw new Error("We couldn't read this receipt.")
+    // `invoke` reports a non-2xx as an opaque "non-2xx status code" and leaves
+    // the body on `error.context`. The body is ours and carries a short reason
+    // token, which is the only thing that says *why* — worth the unwrap.
+    const reason = await readFailureReason(error)
+
+    console.error(`[receipts: Parsing receipt] failed: ${reason}`, error)
+    throw new Error(PARSE_FAILURE_COPY[reason] ?? PARSE_FAILURE_COPY.default)
   }
 
   // Re-read rather than trusting the response body, so the row stays the single

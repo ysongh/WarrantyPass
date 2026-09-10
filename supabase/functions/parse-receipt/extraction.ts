@@ -65,11 +65,22 @@ function asText(value: unknown, maxLength = MAX_TEXT_LENGTH): string | null {
   return trimmed.slice(0, maxLength)
 }
 
-/** Strict: a real number in 0–1. Not coerced, not defaulted when missing. */
-function asConfidence(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1
-    ? value
-    : null
+/**
+ * Confidence is a display hint and nothing else: it decides whether a field is
+ * marked "please verify". It is deliberately **total** — a malformed score
+ * degrades to 0, which reads as "unknown" and shows the marker.
+ *
+ * This was once strict, and rejecting the whole extraction when a score did not
+ * parse was a real bug: a model reporting 95 instead of 0.95 threw away a
+ * perfectly good reading of the receipt. Decoration must never be able to void
+ * data. Percentages are read as such, because models emit them.
+ */
+function asConfidence(value: unknown): number {
+  const raw = typeof value === 'number' ? value : Number(value)
+
+  if (!Number.isFinite(raw) || raw <= 0) return 0
+
+  return Math.min(raw > 1 && raw <= 100 ? raw / 100 : raw, 1)
 }
 
 function asPrice(value: unknown): number | null {
@@ -114,17 +125,7 @@ function parseCandidate(value: unknown): ReceiptProductCandidate | null {
   const record = asRecord(value)
   if (!record) return null
 
-  const scores = asRecord(record.confidence)
-  if (!scores) return null
-
-  const brand = asConfidence(scores.brand)
-  const model = asConfidence(scores.model)
-  const serialNumber = asConfidence(scores.serialNumber)
-  const price = asConfidence(scores.price)
-
-  if (brand === null || model === null || serialNumber === null || price === null) {
-    return null
-  }
+  const scores = asRecord(record.confidence) ?? {}
 
   const candidate: ReceiptProductCandidate = {
     brand: asText(record.brand),
@@ -132,10 +133,18 @@ function parseCandidate(value: unknown): ReceiptProductCandidate | null {
     description: asText(record.description, MAX_DESCRIPTION_LENGTH),
     serialNumber: asText(record.serialNumber),
     price: asPrice(record.price),
-    confidence: { brand, model, serialNumber, price },
+    confidence: {
+      brand: asConfidence(scores.brand),
+      model: asConfidence(scores.model),
+      serialNumber: asConfidence(scores.serialNumber),
+      price: asConfidence(scores.price),
+    },
   }
 
-  if (!candidate.brand && !candidate.model) return null
+  // Something has to name the product. A line with only a price is an item we
+  // cannot describe to the user, but a description alone is still worth
+  // showing — they can supply the brand and model themselves.
+  if (!candidate.brand && !candidate.model && !candidate.description) return null
 
   return candidate
 }
@@ -146,17 +155,41 @@ function parseCandidate(value: unknown): ReceiptProductCandidate | null {
  * offer: half-understood output would prefill a form with values nobody can
  * account for.
  */
+/**
+ * Describes the *shape* of a reply that failed validation, for the log line.
+ *
+ * Presence and counts only — never a value. "Which fields came back" is what
+ * tells you whether a rejection was the model's reading or our own rule, and
+ * it is exactly the thing a plain `no_product_found` does not say. Receipt
+ * contents must never reach a log.
+ */
+export function describeExtractionShape(value: unknown): string {
+  const record = asRecord(value)
+  if (!record) return `not-an-object(${typeof value})`
+
+  if (!Array.isArray(record.products)) {
+    return `products-not-an-array(${typeof record.products})`
+  }
+
+  const shapes = record.products.map((entry) => {
+    const candidate = asRecord(entry)
+    if (!candidate) return 'non-object'
+
+    const present = (['brand', 'model', 'description', 'price'] as const)
+      .filter((key) => candidate[key] !== null && candidate[key] !== undefined)
+      .join('+')
+
+    return present || 'empty'
+  })
+
+  return `products=${record.products.length}[${shapes.join(', ')}]`
+}
+
 export function parseReceiptExtraction(value: unknown): ReceiptExtraction | null {
   const record = asRecord(value)
   if (!record) return null
 
-  const scores = asRecord(record.confidence)
-  if (!scores) return null
-
-  const retailerConfidence = asConfidence(scores.retailer)
-  const purchaseDateConfidence = asConfidence(scores.purchaseDate)
-
-  if (retailerConfidence === null || purchaseDateConfidence === null) return null
+  const scores = asRecord(record.confidence) ?? {}
 
   if (!Array.isArray(record.products)) return null
 
@@ -173,8 +206,8 @@ export function parseReceiptExtraction(value: unknown): ReceiptExtraction | null
     currency: asCurrency(record.currency),
     products,
     confidence: {
-      retailer: retailerConfidence,
-      purchaseDate: purchaseDateConfidence,
+      retailer: asConfidence(scores.retailer),
+      purchaseDate: asConfidence(scores.purchaseDate),
     },
   }
 }
