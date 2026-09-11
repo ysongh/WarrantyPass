@@ -10,4 +10,10 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_ANON_KEY?: string
   /** Optional. Falls back to Sepolia's default public RPC when unset. */
   readonly VITE_SEPOLIA_RPC_URL?: string
+  /**
+   * The deployed `WarrantyPassRegistry`. A contract address is public and safe
+   * to expose. Optional: when unset, onchain proof is simply unavailable —
+   * never substitute a hardcoded or guessed address.
+   */
+  readonly VITE_WARRANTY_PASS_REGISTRY_ADDRESS?: string
 }

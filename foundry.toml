@@ -18,6 +18,7 @@ script = "contracts/script"
 out = "contracts/out"
 libs = ["contracts/lib"]
 cache_path = "contracts/cache"
+broadcast = "contracts/broadcast"
 
 # Pinned rather than floating. A registry whose whole job is to be a stable,
 # immutable record should compile to the same bytecode tomorrow as it did today.

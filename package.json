@@ -11,7 +11,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "sync:abi": "node scripts/sync-abi.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.115.0",

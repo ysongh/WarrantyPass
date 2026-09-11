@@ -18,6 +18,10 @@ dist-ssr
 contracts/out
 contracts/cache
 
+# forge script run logs. Regenerated per run and noisy; the facts worth keeping
+# (address, transaction hash, block) are recorded in docs/deployment.md.
+contracts/broadcast
+
 # Environment
 .env
 .env.*

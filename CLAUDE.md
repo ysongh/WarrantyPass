@@ -89,13 +89,17 @@ React/Vite/TypeScript, Tailwind, React Router, app shell, landing page, placehol
 2. `receipts.receipt_keccak256` column ✅
 3. Foundry toolchain ✅
 4. `WarrantyPassRegistry.sol` ✅
-5. Contract test suite ✅ *(28 passing, incl. 2 fuzz)*
-6. `hash-receipt` Edge Function — keccak256 server-side ❌
-7. `getProductKey` / date→timestamp helpers ❌
-8. Sepolia deployment + ABI export ❌
+5. Contract test suite ✅ *(29 passing, incl. 2 fuzz)*
+6. `hash-receipt` Edge Function — keccak256 server-side ⚠️ *written, **not deployed**, never executed*
+7. `getProductKey` / date→timestamp helpers ✅
+8. ABI export ✅ — **Sepolia deployment ❌**
 9. Create-proof UX, reconciliation, conflict states ❌
 
-Do not mark Phase 4 complete until 6–9 land. In particular there is **no deployed contract address yet**, so any frontend work must treat the registry address as unset rather than inventing one.
+Do not mark Phase 4 complete until 6, 8 and 9 land. Two specifics:
+
+**There is no deployed contract address.** `VITE_WARRANTY_PASS_REGISTRY_ADDRESS` is blank and `registryAddress` correctly resolves to `null`. Frontend work must treat that as "proof unavailable" — never a hardcoded or guessed address.
+
+**`hash-receipt` has never run.** It type-checks and its logic is reviewed, but nothing has executed it against real Storage. Do not describe it as working until `supabase functions deploy hash-receipt` has happened and the smoke tests in `docs/deployment.md` pass.
 
 Still explicitly **out of scope until a later phase**: ENSv2, product ownership/transfer, NFTs of any kind, QR codes, service records, notifications, public verification data. Phase 4 adds onchain *writes* but no ownership model — see *Onchain proof* below.
 
