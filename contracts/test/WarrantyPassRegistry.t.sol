@@ -54,6 +54,30 @@ contract WarrantyPassRegistryTest is Test {
     }
 
     // -----------------------------------------------------------------------
+    // The product key derivation is shared with the frontend
+    // -----------------------------------------------------------------------
+
+    /// @dev `getProductKey` in src/lib/productKey.ts must produce exactly this,
+    /// because the app registers under the key it derives and reads back under
+    /// the same one. A divergence would not fail loudly — it would look like a
+    /// proof that had never been created.
+    ///
+    /// The literals below were produced by `cast keccak`, independently of both
+    /// viem and solc.
+    function test_ProductKeyMatchesTheFrontendDerivation() public pure {
+        assertEq(
+            keccak256(bytes("wp_550e8400e29b41d4a716446655440000")),
+            0x96156947ae700e998d10af1df879e0e2a8bab0ec228f1ec11378b5a6fc74239e,
+            "keccak256(utf8 public_id) for A"
+        );
+        assertEq(
+            keccak256(bytes("wp_6f1c2b9d4e8a47f3b2c1d0e9f8a7b6c5")),
+            0x7b01f6581c0709ac00534ec2e3707e8a949ce9b1c3bd25330d92e4b17e7074ac,
+            "keccak256(utf8 public_id) for B"
+        );
+    }
+
+    // -----------------------------------------------------------------------
     // Registration success
     // -----------------------------------------------------------------------
 
