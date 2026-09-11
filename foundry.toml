@@ -1,0 +1,36 @@
+# Foundry configuration for the phase 4 onchain proof registry.
+#
+# Why Foundry and not Hardhat: Foundry was already installed on this machine,
+# it adds nothing to package.json, and its tests are Solidity — so the contract
+# toolchain stays entirely out of the React app's dependency tree. Hardhat would
+# have pulled in ethers, chai and mocha alongside the viem/wagmi stack the app
+# already uses, which is a second, competing web3 toolchain in a repo that
+# deliberately has no JS test runner.
+#
+# Every path is pushed under contracts/ on purpose. Foundry's default `src` is
+# the repository root's src/, which here is the React application — pointing the
+# Solidity compiler at it would be both wrong and slow.
+
+[profile.default]
+src = "contracts/src"
+test = "contracts/test"
+script = "contracts/script"
+out = "contracts/out"
+libs = ["contracts/lib"]
+cache_path = "contracts/cache"
+
+# Pinned rather than floating. A registry whose whole job is to be a stable,
+# immutable record should compile to the same bytecode tomorrow as it did today.
+solc = "0.8.24"
+
+optimizer = true
+optimizer_runs = 200
+
+# Deterministic addresses in tests and a readable trace on failure.
+fs_permissions = []
+
+[fmt]
+line_length = 100
+tab_width = 4
+bracket_spacing = false
+int_types = "long"
