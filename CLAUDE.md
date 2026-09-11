@@ -146,6 +146,8 @@ The toolchain is newer than most training data and most tutorials. These will bi
 
 Tailwind v4 also tree-shakes unused theme tokens, so a defined-but-unused token legitimately will not appear in `dist/`. That is not a broken config.
 
+**PL/pgSQL `returns table (...)`** — those column names become OUT parameters and are in scope as *variables* throughout the function body, shadowing any real column of the same name. `create_product_with_warranty` returns `(product_id, public_id)`, so a bare `product_id` in its receipt-attach `WHERE` was ambiguous (`42702`) and failed at runtime, in the one branch nothing had exercised yet. Alias the table and qualify every column reference — `update public.receipts as r … where r.product_id is null`. `SET` targets stay unqualified; they can only be columns.
+
 **React Router v8** — `react-router-dom` no longer exists as a separate package. Import everything from `react-router`.
 
 **TypeScript** — `strict: true` was added manually to both tsconfigs; the create-vite template omitted it. `verbatimModuleSyntax` is on, so use `import type` for type-only imports. `allowImportingTsExtensions` is on, hence `import App from './App.tsx'`.

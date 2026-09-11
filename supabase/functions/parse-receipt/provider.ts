@@ -94,9 +94,11 @@ Choosing products:
 
 - A receipt may list many items. Return up to three that are plausibly durable goods someone would want a warranty for — electronics, appliances, tools, furniture. Order them most likely first.
 - Copy the visibly printed item name or abbreviated line-item label verbatim into description. A readable description is enough to include a durable product even when its brand and model are not printed; return null for those missing fields and do not expand abbreviations or guess an identity.
-- Ignore consumables, food, services, discounts, fees and taxes.
+- Judge each line by its own printed name, not by the section heading above it. Shops file items under headings like GROCERY, MISC or GENERAL that say nothing about whether that item is durable.
+- Ignore obvious consumables — food, drink, toiletries — along with services, discounts, fees and taxes.
 - You select durable product candidates, not actual warranty eligibility. Do not require a printed warranty or a known brand or model.
-- If no legible durable product can be identified on the receipt, return an empty products array.
+- Prefer a plausible candidate over none. Someone chose to scan this receipt, and they can dismiss a wrong suggestion in one click, whereas an empty result leaves them nothing to work with. Where no line is clearly durable, return the most plausible non-consumable lines anyway and give them low confidence to say you are unsure.
+- Return an empty products array only when every line is plainly a consumable, a service or a fee.
 
 Warranty terms are not your job:
 
