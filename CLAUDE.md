@@ -93,7 +93,7 @@ React/Vite/TypeScript, Tailwind, React Router, app shell, landing page, placehol
 6. `hash-receipt` Edge Function — keccak256 server-side ⚠️ *written, **not deployed**, never executed*
 7. `getProductKey` / date→timestamp helpers ✅
 8. ABI export ✅ — **Sepolia deployment ❌**
-9. Create-proof UX, reconciliation, conflict states ❌
+9. Create-proof UX, reconciliation, conflict states ⚠️ *built; never run against a live chain or wallet*
 
 Do not mark Phase 4 complete until 6, 8 and 9 land. Two specifics:
 
@@ -131,6 +131,12 @@ Small and deliberately flat:
 - `src/lib/supabase.ts` — browser client. Exports `supabase`, which is **`SupabaseClient | null`**, plus `isSupabaseConfigured`. It is nullable on purpose: the app must run locally without a Supabase project, so check the flag (or narrow the null) before use rather than making the export non-nullable.
 - `src/lib/wagmi.ts` — wagmi **v3** (not v2; connectors live at `wagmi/connectors`). Sepolia only, injected connector only — no WalletConnect project ID needed. `VITE_SEPOLIA_RPC_URL` optionally overrides the default public RPC.
 - `src/components/wallet/WalletButton.tsx` — connect / shortened address / disconnect, slotted into `Header`.
+- `src/components/blockchain/OnchainProofCard.tsx` — every proof state on the product page. Renders `null` when no registry is configured.
+- `src/hooks/useOnchainProof.ts` — chain reads, background reconciliation, and the create-proof mutation. Nothing here broadcasts without a click.
+- `src/lib/blockchainRecords.ts` — every Supabase read/write for `blockchain_records`, plus `deriveProofState`. That function is **pure and its precedence order is the safety property** — see *Onchain proof*.
+- `src/lib/contracts/warrantyPass.ts` — address config, typed reads, `buildRegisterWarrantyArgs`, `compareOnchainRecord`, explorer links. Hand-written; never regenerated.
+- `src/contracts/warrantyPassRegistry.ts` — **generated** ABI. `forge build && pnpm sync:abi`. Never hand-edit, never paste an ABI elsewhere.
+- `src/lib/productKey.ts`, `src/lib/chainDates.ts` — `keccak256(utf8 public_id)` and date→**UTC**-midnight `uint64`. Both throw on malformed input rather than producing a permanent wrong value.
 - `src/index.css` — Tailwind import, design tokens, base layer.
 - `foundry.toml` — Foundry config. Every path is redirected under `contracts/`; see the gotcha below for why that is not optional.
 - `contracts/src/WarrantyPassRegistry.sol` — the proof registry. Write-once, permissionless, no admin, no proxy, no token.
@@ -205,6 +211,15 @@ Naming follows from that. Use **registrant**, **registeredBy**, **onchain proof*
 **Duplicate protection is a partial unique index** on `(product_id, chain_id, contract_address) where registration_status in ('pending','confirmed')`. Including `pending` is what stops a second tab broadcasting a duplicate transaction; excluding `failed` preserves retry and keeps a failed transaction hash for troubleshooting. A `confirmed` row must additionally carry `block_number`, `registered_at` and `receipt_hash` — `blockchain_records_confirmed_is_complete` — so a bug cannot produce a row the UI renders as Verified with nothing behind it.
 
 **The chain is authoritative about whether a key is registered.** Supabase can be stale (browser closed mid-transaction); the chain cannot. Reconcile from chain → database, never the reverse, and never mark a record confirmed on a transaction hash alone — wait for a successful receipt, then read the record back and compare it field by field. On mismatch, show an integrity warning; do not show Verified, and do not overwrite either side.
+
+**`deriveProofState` is pure, and its precedence order is the safety property — not an implementation detail.** Two rules must survive any refactor:
+
+1. **Chain truth is decided before any wallet check.** Disconnecting a wallet or switching networks must never turn a verified proof back into "create one", and must never hide a conflict. Rewriting this as separate booleans in the component would break it silently, which is why it is one function over all the inputs at once.
+2. **Conflict outranks confirmed**, including over a database row that says `confirmed`.
+
+A chain record that matches but has no local row is **Verified, not a conflict** — all compared fields passed against the product's own values, and the missing row is bookkeeping. A record that exists onchain but cannot be compared (no local hash or dates) *is* a conflict: it cannot be shown to describe this product.
+
+Reconciliation requires a successful receipt **and** the key actually being present onchain. A successful receipt alone does not prove that this key was registered; if it succeeds and the key is absent, leave the row alone for a human.
 
 ## Version-specific gotchas
 

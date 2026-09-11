@@ -98,6 +98,19 @@ export type ReceiptSummary = {
   originalFilename: string
   mimeType: string
   sizeBytes: number
+  /**
+   * keccak256 of the original raw file bytes, `0x`-prefixed lowercase hex.
+   * Computed server-side by `hash-receipt` from the stored object, never by the
+   * client, and anchored onchain as `bytes32`.
+   *
+   * Null until it has been requested: receipts predating phase 4 are hashed
+   * lazily, and none of them ever needs re-uploading.
+   *
+   * On the summary rather than only on `Receipt` because the product page shows
+   * it — see the onchain proof section. Not derivable from `receiptHash`; they
+   * are different algorithms over the same bytes.
+   */
+  receiptKeccak256: string | null
   createdAt: string
 }
 
@@ -107,6 +120,7 @@ export type ReceiptSummary = {
  * owner.
  */
 export type Receipt = ReceiptSummary & {
+  /** SHA-256 of the original bytes, bare lowercase hex. Phase 3, browser-side. */
   receiptHash: string | null
   extractionStatus: ReceiptExtractionStatus
   /** Parsed and re-validated from `extraction_data`; `null` if it failed to. */

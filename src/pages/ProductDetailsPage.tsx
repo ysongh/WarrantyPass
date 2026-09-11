@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router'
 
 import SessionGate from '../components/auth/SessionGate'
+import OnchainProofCard from '../components/blockchain/OnchainProofCard'
 import WarrantyStatusBadge from '../components/products/WarrantyStatusBadge'
 import Button from '../components/ui/Button'
 import ButtonLink from '../components/ui/ButtonLink'
@@ -136,6 +137,9 @@ function ReceiptSection({ product }: { product: ProductWithWarranty }) {
 
 function ProductDetails({ product }: { product: ProductWithWarranty }) {
   const { warranty } = product
+  // Shared with `ReceiptSection` below; TanStack Query dedupes the two calls by
+  // key, so this is one request.
+  const { data: receipt } = useProductReceipt(product.id)
   const status = getWarrantyStatus(warranty?.endDate)
   const daysRemaining = formatDaysRemaining(warranty?.endDate)
   const price = formatPrice(product.purchasePrice, product.currency)
@@ -178,6 +182,8 @@ function ProductDetails({ product }: { product: ProductWithWarranty }) {
         </Section>
 
         <ReceiptSection product={product} />
+
+        <OnchainProofCard product={product} receipt={receipt} />
 
         <Section title="Private">
           <Detail label="Serial number">

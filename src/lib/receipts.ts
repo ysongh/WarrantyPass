@@ -43,6 +43,7 @@ const RECEIPT_COLUMNS = `
   mime_type,
   size_bytes,
   receipt_hash,
+  receipt_keccak256,
   extraction_status,
   extraction_data,
   extraction_error,
@@ -62,6 +63,7 @@ const RECEIPT_SUMMARY_COLUMNS = `
   original_filename,
   mime_type,
   size_bytes,
+  receipt_keccak256,
   created_at
 `
 
@@ -72,11 +74,13 @@ type ReceiptSummaryRow = {
   original_filename: string
   mime_type: string
   size_bytes: number | string
+  receipt_keccak256: string | null
   created_at: string
 }
 
 type ReceiptRow = ReceiptSummaryRow & {
   receipt_hash: string | null
+  receipt_keccak256: string | null
   extraction_status: string
   extraction_data: unknown
   extraction_error: string | null
@@ -160,6 +164,7 @@ function mapSummary(row: ReceiptSummaryRow): ReceiptSummary {
     originalFilename: row.original_filename,
     mimeType: row.mime_type,
     sizeBytes: toNumber(row.size_bytes),
+    receiptKeccak256: row.receipt_keccak256,
     createdAt: row.created_at,
   }
 }
@@ -168,6 +173,7 @@ function mapReceipt(row: ReceiptRow): Receipt {
   return {
     ...mapSummary(row),
     receiptHash: row.receipt_hash,
+    receiptKeccak256: row.receipt_keccak256,
     extractionStatus: toStatus(row.extraction_status),
     // Re-validated on the way out. `extraction_data` is unconstrained `jsonb`,
     // so its shape is not guaranteed by the column type, and it originated with
@@ -493,6 +499,58 @@ export async function parseReceipt(
   if (!parsed) throw new Error("We couldn't read this receipt.")
 
   return parsed
+}
+
+/** Short, safe copy for each reason token `hash-receipt` can return. */
+const HASH_FAILURE_COPY: Record<string, string> = {
+  missing_object:
+    "We couldn't read the stored receipt image. It may not have finished uploading.",
+  bad_size: 'The stored receipt image is unusable, so it cannot be hashed.',
+  object_integrity_mismatch:
+    'This receipt no longer matches the fingerprint recorded when it was uploaded. Its proof hash has not been changed.',
+  keccak_integrity_mismatch:
+    'This receipt no longer matches its recorded proof hash. The stored hash has not been changed.',
+  save_failed: "We couldn't save the receipt hash. Try again in a moment.",
+  default: "We couldn't hash this receipt.",
+}
+
+/**
+ * Computes and stores the receipt's keccak256 digest, returning it.
+ *
+ * The hashing happens server-side, over the bytes actually in Storage — the
+ * browser neither computes this value nor is able to supply one. That is the
+ * whole point: a digest calculated here could describe a file different from
+ * the one stored, and the onchain claim would be false in a way nothing
+ * downstream could detect.
+ *
+ * Safe to call on an already-hashed receipt: the function recomputes, confirms
+ * the stored digest still matches, and returns it unchanged. A disagreement is
+ * reported as an integrity error and never repaired by overwriting.
+ */
+export async function hashReceipt(receiptId: string): Promise<string> {
+  const client = requireClient()
+
+  const { data, error } = await client.functions.invoke<{ receiptKeccak256?: unknown }>(
+    'hash-receipt',
+    { body: { receiptId } },
+  )
+
+  if (error) {
+    const reason = await readFailureReason(error)
+
+    console.error(`[receipts: Hashing receipt] failed: ${reason}`)
+    throw new Error(HASH_FAILURE_COPY[reason] ?? HASH_FAILURE_COPY.default)
+  }
+
+  const hash = data?.receiptKeccak256
+
+  // Validated rather than trusted. This value is about to become the argument
+  // of an irreversible transaction, so a malformed one must fail here.
+  if (typeof hash !== 'string' || !/^0x[0-9a-f]{64}$/.test(hash)) {
+    throw new Error(HASH_FAILURE_COPY.default)
+  }
+
+  return hash
 }
 
 /**
