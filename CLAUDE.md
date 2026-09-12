@@ -39,6 +39,7 @@ Edge Functions live in `supabase/functions/`. They deploy without Docker (the "D
 ```bash
 supabase secrets set ANTHROPIC_API_KEY=...   # never a VITE_ variable
 supabase functions deploy parse-receipt
+supabase functions deploy hash-receipt       # needs no secret of its own
 supabase secrets list                        # names and digests only
 ```
 
@@ -90,7 +91,7 @@ React/Vite/TypeScript, Tailwind, React Router, app shell, landing page, placehol
 3. Foundry toolchain ✅
 4. `WarrantyPassRegistry.sol` ✅
 5. Contract test suite ✅ *(29 passing, incl. 2 fuzz)*
-6. `hash-receipt` Edge Function — keccak256 server-side ⚠️ *written, **not deployed**, never executed*
+6. `hash-receipt` Edge Function — keccak256 server-side ✅ *deployed; auth/validation/CORS smoke-tested, hashing path not yet exercised*
 7. `getProductKey` / date→timestamp helpers ✅
 8. ABI export ✅ — **Sepolia deployment ❌**
 9. Create-proof UX, reconciliation, conflict states ⚠️ *built; never run against a live chain or wallet*
@@ -99,7 +100,7 @@ Do not mark Phase 4 complete until 6, 8 and 9 land. Two specifics:
 
 **There is no deployed contract address.** `VITE_WARRANTY_PASS_REGISTRY_ADDRESS` is blank and `registryAddress` correctly resolves to `null`. Frontend work must treat that as "proof unavailable" — never a hardcoded or guessed address.
 
-**`hash-receipt` has never run.** It type-checks and its logic is reviewed, but nothing has executed it against real Storage. Do not describe it as working until `supabase functions deploy hash-receipt` has happened and the smoke tests in `docs/deployment.md` pass.
+**`hash-receipt` is deployed, but has never hashed anything.** Its gate is verified — the platform 401s a missing header, the function 401s the anon key alone, a malformed `receiptId` 400s, `GET` 405s, and `OPTIONS` returns 204 with CORS. What has *not* run is the part that matters: downloading a stored object, recomputing the SHA-256 witness, and writing a keccak digest. That needs a real session and a real receipt.
 
 Still explicitly **out of scope until a later phase**: ENSv2, product ownership/transfer, NFTs of any kind, QR codes, service records, notifications, public verification data. Phase 4 adds onchain *writes* but no ownership model — see *Onchain proof* below.
 

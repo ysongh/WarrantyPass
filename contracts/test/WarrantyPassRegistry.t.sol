@@ -26,8 +26,7 @@ contract WarrantyPassRegistryTest is Test {
     uint64 internal constant FEB_28_2025 = 1740700800;
 
     // keccak256 of an opaque public id, exactly as the application derives it.
-    bytes32 internal constant PRODUCT_KEY =
-        keccak256(bytes("wp_550e8400e29b41d4a716446655440000"));
+    bytes32 internal constant PRODUCT_KEY = keccak256(bytes("wp_550e8400e29b41d4a716446655440000"));
     bytes32 internal constant OTHER_PRODUCT_KEY =
         keccak256(bytes("wp_6f1c2b9d4e8a47f3b2c1d0e9f8a7b6c5"));
     bytes32 internal constant RECEIPT_HASH = keccak256("original receipt file bytes");
@@ -93,9 +92,7 @@ contract WarrantyPassRegistryTest is Test {
         assertEq(record.registeredBy, alice, "registeredBy is the caller");
         assertTrue(record.warrantyTransferable, "warrantyTransferable");
         assertEq(
-            uint8(record.state),
-            uint8(WarrantyPassRegistry.WarrantyState.Active),
-            "state is Active"
+            uint8(record.state), uint8(WarrantyPassRegistry.WarrantyState.Active), "state is Active"
         );
     }
 
@@ -146,9 +143,7 @@ contract WarrantyPassRegistryTest is Test {
     function test_RegisterEmitsWarrantyRegistered() public {
         // All three indexed topics and the data payload are checked.
         vm.expectEmit(true, true, true, true, address(registry));
-        emit WarrantyRegistered(
-            PRODUCT_KEY, RECEIPT_HASH, alice, SEP_08_2026, SEP_08_2029, true
-        );
+        emit WarrantyRegistered(PRODUCT_KEY, RECEIPT_HASH, alice, SEP_08_2026, SEP_08_2029, true);
 
         vm.prank(alice);
         registry.registerWarranty(PRODUCT_KEY, RECEIPT_HASH, SEP_08_2026, SEP_08_2029, true);

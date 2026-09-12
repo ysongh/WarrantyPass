@@ -190,7 +190,25 @@ supabase functions deploy hash-receipt
 
 Docker is not required; the "Docker is not running" warning is harmless.
 
-Smoke-test it without spending anything — none of these reach Storage:
+Smoke-test it without spending anything — none of these reach Storage.
+
+**Last run: all six passed** on project `qzldrsejwnnvfmwnhzdq`.
+
+| Request | Expected | Got |
+|---|---|---|
+| no `Authorization` | 401 from the platform gateway | `401 UNAUTHORIZED_NO_AUTH_HEADER` |
+| anon key, no user session | 401 from the function itself | `401 Authentication required.` |
+| malformed `receiptId` | 400 | `400 A valid receiptId is required.` |
+| no JSON body | 400 | `400 Expected a JSON body.` |
+| `GET` | 405 | `405 Method not allowed.` |
+| `OPTIONS` | 204 + CORS headers | `204`, origin `*`, methods `POST, OPTIONS` |
+
+The first two rows are the security property worth re-checking after any change:
+the gateway rejects a missing header, and the **function** rejects the anon key
+on its own. Holding the public key gets you nothing without a real user session.
+
+What these do **not** cover: the Storage download, the SHA-256 witness check, and
+the keccak write. Those need a real session and a real receipt.
 
 ```bash
 BASE="$VITE_SUPABASE_URL/functions/v1/hash-receipt"
