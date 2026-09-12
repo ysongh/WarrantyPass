@@ -1,5 +1,5 @@
 import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi'
-import { sepolia } from 'wagmi/chains'
+import { arcTestnet } from 'wagmi/chains'
 
 const buttonBase =
   'rounded-card px-3 py-2 text-sm font-medium transition-colors disabled:opacity-60'
@@ -41,13 +41,13 @@ function WalletButton() {
 
   return (
     <div className="flex items-center gap-2">
-      {chainId !== sepolia.id && (
+      {chainId !== arcTestnet.id && (
         <button
           type="button"
           className={`${buttonBase} border border-line bg-surface text-ink hover:bg-canvas`}
-          onClick={() => switchChain({ chainId: sepolia.id })}
+          onClick={() => switchChain({ chainId: arcTestnet.id })}
         >
-          Switch to Sepolia
+          Switch to Arc
         </button>
       )}
       <span

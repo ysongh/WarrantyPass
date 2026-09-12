@@ -16,7 +16,7 @@ Phase 1 foundation:
 - React Router
 - Shared app shell (header + layout)
 - Supabase client foundation
-- Wallet connectivity (wagmi + viem, Sepolia)
+- Wallet connectivity (wagmi + viem, Arc Testnet)
 
 Phase 2 added:
 
@@ -49,11 +49,16 @@ provider key must be set as an Edge Function secret. See
 
 ## Wallet
 
-[`src/lib/wagmi.ts`](src/lib/wagmi.ts) configures **Sepolia** with the injected
+[`src/lib/wagmi.ts`](src/lib/wagmi.ts) configures **Arc Testnet** with the injected
 connector only, so a browser wallet such as MetaMask works with no third-party
 project ID. [`WalletButton`](src/components/wallet/WalletButton.tsx) sits in the
 header: it connects, shows a shortened `0x1234…5678`, offers Disconnect, and
 prompts to switch network if the wallet is on the wrong chain.
+
+Arc is Circle's chain (id `5042002`) and **USDC is its native gas token** — a
+wallet holding only ETH cannot transact on it. Get testnet USDC from
+[Circle's faucet](https://faucet.circle.com) before creating an onchain proof.
+Arc is testnet-only today.
 
 Addresses returned by wagmi are EIP-55 checksummed, so compare them
 case-insensitively against anything stored elsewhere.

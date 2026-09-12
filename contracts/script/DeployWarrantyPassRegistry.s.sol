@@ -6,7 +6,7 @@ import {console} from "forge-std/console.sol";
 
 import {WarrantyPassRegistry} from "../src/WarrantyPassRegistry.sol";
 
-/// @notice Deploys the registry. Sepolia in practice, but chain-agnostic.
+/// @notice Deploys the registry. Arc Testnet in practice, but chain-agnostic.
 ///
 /// @dev Secrets
 /// -----------
@@ -22,11 +22,20 @@ import {WarrantyPassRegistry} from "../src/WarrantyPassRegistry.sol";
 /// @dev Usage
 /// ----------
 ///   forge script contracts/script/DeployWarrantyPassRegistry.s.sol \
-///     --rpc-url "$SEPOLIA_RPC_URL" --broadcast --verify -vvvv
+///     --rpc-url "$ARC_TESTNET_RPC_URL" --broadcast -vvvv
 ///
-/// Drop `--broadcast` for a simulation that spends nothing. Drop `--verify` if
-/// no `ETHERSCAN_API_KEY` is set; source verification can be done afterwards
-/// with `forge verify-contract` and is not a prerequisite for the app working.
+/// Drop `--broadcast` for a simulation that spends nothing.
+///
+/// @dev Gas is paid in USDC
+/// -----------------------
+/// Arc is Circle's chain and USDC is its native token, so the deployer needs
+/// testnet USDC — not ETH — from https://faucet.circle.com. A wallet funded
+/// with ETH cannot deploy here. `deployer.balance` below is that USDC balance,
+/// in 18-decimal native units.
+///
+/// Source verification is deliberately not wired into this command. Arc's
+/// explorer is ArcScan rather than Etherscan, so `--verify` with an Etherscan
+/// key does not apply; see docs/deployment.md.
 ///
 /// @dev Why there is nothing to configure
 /// -------------------------------------

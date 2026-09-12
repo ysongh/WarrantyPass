@@ -202,7 +202,7 @@ export function useOnchainProof(
   }
 }
 
-/** Switches the wallet to Sepolia. */
+/** Switches the wallet to Arc Testnet. */
 export function useSwitchToRegistryChain() {
   const { switchChain, isPending, error } = useSwitchChain()
 

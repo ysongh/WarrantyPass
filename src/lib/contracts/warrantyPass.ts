@@ -1,5 +1,5 @@
 import { readContract } from 'wagmi/actions'
-import { sepolia } from 'wagmi/chains'
+import { arcTestnet } from 'wagmi/chains'
 import { BaseError, ContractFunctionRevertedError } from 'viem'
 import type { Address, Hex } from 'viem'
 
@@ -23,11 +23,17 @@ import type { IsoDate, WarrantyTransferability } from '../../types/product'
  * the result back.
  */
 
-/** Sepolia. The only chain phase 4 targets. */
-export const REGISTRY_CHAIN = sepolia
+/**
+ * Arc Testnet. The only chain phase 4 targets.
+ *
+ * Arc is Circle's chain and USDC is its native gas token, so a registration is
+ * paid for in USDC rather than ETH. Users fund from https://faucet.circle.com.
+ * Arc is testnet-only today; there is no mainnet counterpart to fall back to.
+ */
+export const REGISTRY_CHAIN = arcTestnet
 
-/** 11155111. Persisted on every blockchain_records row. */
-export const REGISTRY_CHAIN_ID = sepolia.id
+/** 5042002. Persisted on every blockchain_records row. */
+export const REGISTRY_CHAIN_ID = arcTestnet.id
 
 const ADDRESS_PATTERN = /^0x[0-9a-fA-F]{40}$/
 

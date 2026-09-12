@@ -33,8 +33,11 @@ anyone who loads the page.
 |---|---|---|
 | `VITE_SUPABASE_URL` | yes | |
 | `VITE_SUPABASE_ANON_KEY` | yes | Public by design; RLS is the boundary |
-| `VITE_SEPOLIA_RPC_URL` | no | Falls back to the public RPC, which is rate-limited |
+| `VITE_ARC_TESTNET_RPC_URL` | no | Falls back to `https://rpc.testnet.arc.network`, which is rate-limited |
 | `VITE_WARRANTY_PASS_REGISTRY_ADDRESS` | no | Unset ⇒ onchain proof unavailable |
+
+The app targets **Arc Testnet** (chain ID `5042002`), Circle's chain. Arc is
+testnet-only today — there is no mainnet to point at.
 
 A contract address is public information, so exposing it is fine. Leaving it
 **unset is a supported state**: the app treats it as "proof unavailable" and
@@ -47,9 +50,16 @@ These are read by `forge script` and by nothing under `src/`.
 
 | Variable | Purpose |
 |---|---|
-| `SEPOLIA_RPC_URL` | RPC endpoint used to broadcast the deployment |
-| `DEPLOYER_PRIVATE_KEY` | Funded Sepolia key, `0x`-prefixed |
-| `ETHERSCAN_API_KEY` | Optional; only for source verification |
+| `ARC_TESTNET_RPC_URL` | RPC endpoint used to broadcast the deployment |
+| `DEPLOYER_PRIVATE_KEY` | Deployer key, `0x`-prefixed, funded with testnet **USDC** |
+
+> **Gas on Arc is USDC, not ETH.** Arc is Circle's chain and USDC is its native
+> token, so a wallet holding only ETH cannot deploy or register anything here.
+> Fund the deployer from <https://faucet.circle.com> first.
+>
+> One decimals trap: native USDC on Arc uses **18** decimals, like ether, while
+> the ERC-20 USDC contract uses 6. Nothing in this app moves USDC as a token,
+> so only the native form is in play — but do not conflate them if that changes.
 
 > **A `VITE_DEPLOYER_PRIVATE_KEY` would compile a funded private key into a
 > public JavaScript bundle.** The prefix is not a naming preference.
@@ -139,14 +149,14 @@ Simulate first — this spends nothing:
 
 ```bash
 forge script contracts/script/DeployWarrantyPassRegistry.s.sol \
-  --rpc-url "$SEPOLIA_RPC_URL" -vvvv
+  --rpc-url "$ARC_TESTNET_RPC_URL" -vvvv
 ```
 
 Then broadcast:
 
 ```bash
 forge script contracts/script/DeployWarrantyPassRegistry.s.sol \
-  --rpc-url "$SEPOLIA_RPC_URL" --broadcast -vvvv
+  --rpc-url "$ARC_TESTNET_RPC_URL" --broadcast -vvvv
 ```
 
 The registry takes no constructor arguments and has no initialiser, owner or
@@ -160,8 +170,8 @@ Fill this in after deploying, and set
 
 | Field | Value |
 |---|---|
-| Network | Sepolia |
-| Chain ID | 11155111 |
+| Network | Arc Testnet |
+| Chain ID | 5042002 |
 | Contract address | _not yet deployed_ |
 | Deployment tx | _not yet deployed_ |
 | Block number | _not yet deployed_ |
@@ -172,13 +182,23 @@ Fill this in after deploying, and set
 
 Not required for the app to work, and not a blocker.
 
+Arc's explorer is **ArcScan** (<https://testnet.arcscan.app>), not Etherscan, so
+the usual `--chain sepolia --etherscan-api-key` incantation does not apply. The
+chain metadata advertises a Blockscout-style API at
+`https://testnet.arcscan.app/api`, which would make the command roughly:
+
 ```bash
 forge verify-contract <ADDRESS> \
   contracts/src/WarrantyPassRegistry.sol:WarrantyPassRegistry \
-  --chain sepolia --etherscan-api-key "$ETHERSCAN_API_KEY" --watch
+  --verifier blockscout \
+  --verifier-url https://testnet.arcscan.app/api \
+  --watch
 ```
 
-Add `--verify` to the deploy command to do it in one step.
+⚠️ **This command has not been run and is not confirmed to work.** It is
+inferred from the explorer's advertised API, not from a successful verification.
+Check ArcScan's own documentation before relying on it, and do not record the
+contract as "verified" until an explorer page actually shows the source.
 
 ---
 

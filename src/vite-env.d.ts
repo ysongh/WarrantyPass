@@ -8,8 +8,8 @@
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string
   readonly VITE_SUPABASE_ANON_KEY?: string
-  /** Optional. Falls back to Sepolia's default public RPC when unset. */
-  readonly VITE_SEPOLIA_RPC_URL?: string
+  /** Optional. Falls back to Arc Testnet's default public RPC when unset. */
+  readonly VITE_ARC_TESTNET_RPC_URL?: string
   /**
    * The deployed `WarrantyPassRegistry`. A contract address is public and safe
    * to expose. Optional: when unset, onchain proof is simply unavailable —

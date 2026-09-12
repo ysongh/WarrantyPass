@@ -188,7 +188,7 @@ function OnchainProofCard({
         <>
           <p className="mt-4 text-ink-muted text-pretty">
             Connect a wallet to anchor a tamper-evident proof of this receipt and
-            warranty record to Sepolia.
+            warranty record to Arc Testnet.
           </p>
           <div className="mt-6">
             <Button
@@ -205,8 +205,8 @@ function OnchainProofCard({
       {state.kind === 'wrong-chain' && (
         <>
           <p className="mt-4 text-ink-muted text-pretty">
-            Sepolia is required to create this proof. Your wallet is on another
-            network.
+            Arc Testnet is required to create this proof. Your wallet is on
+            another network.
           </p>
           <div className="mt-6">
             <Button
@@ -214,7 +214,7 @@ function OnchainProofCard({
               disabled={isSwitching}
               onClick={() => switchToRegistryChain()}
             >
-              {isSwitching ? 'Switching…' : 'Switch to Sepolia'}
+              {isSwitching ? 'Switching…' : 'Switch to Arc Testnet'}
             </Button>
           </div>
           <Disclaimer />
@@ -226,7 +226,20 @@ function OnchainProofCard({
           <p className="mt-2 font-medium text-ink">Not created</p>
           <p className="mt-2 text-ink-muted text-pretty">
             Anchor a tamper-evident proof of this receipt and warranty record to
-            Sepolia. You will be asked to confirm one transaction.
+            Arc Testnet. You will be asked to confirm one transaction.
+          </p>
+          <p className="mt-2 text-sm text-ink-muted text-pretty">
+            Arc uses USDC for transaction fees rather than ETH. If your wallet
+            has no testnet USDC, get some from{' '}
+            <a
+              href="https://faucet.circle.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-brand-600 underline underline-offset-2 hover:text-brand-700"
+            >
+              Circle's faucet
+            </a>
+            .
           </p>
 
           {state.kind === 'failed' && (
@@ -274,7 +287,7 @@ function OnchainProofCard({
                 <span className="font-mono text-sm">{shorten(state.record.transactionHash)}</span>
               )}
             </Row>
-            <Row label="Network">Sepolia</Row>
+            <Row label="Network">Arc Testnet</Row>
           </dl>
           <div className="mt-6">
             <Button variant="secondary" onClick={() => void refetch()}>
@@ -290,7 +303,7 @@ function OnchainProofCard({
           <p className="mt-2 font-medium text-success-700">Verified ✓</p>
 
           <dl className="mt-6 grid gap-5 sm:grid-cols-2">
-            <Row label="Network">Sepolia</Row>
+            <Row label="Network">Arc Testnet</Row>
             <Row label="Receipt integrity">
               <span className="font-medium text-success-700">
                 Receipt matches onchain proof ✓

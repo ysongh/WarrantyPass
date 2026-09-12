@@ -60,7 +60,7 @@ This repo is built in explicit, ordered phases, and *not building ahead* is a ha
 
 **Phase 1 — application foundation ✅**
 
-React/Vite/TypeScript, Tailwind, React Router, app shell, landing page, placeholder pages, Supabase client, wagmi + viem (Sepolia), root providers.
+React/Vite/TypeScript, Tailwind, React Router, app shell, landing page, placeholder pages, Supabase client, wagmi + viem, root providers.
 
 **Phase 2 — offchain product records ✅**
 
@@ -93,7 +93,7 @@ React/Vite/TypeScript, Tailwind, React Router, app shell, landing page, placehol
 5. Contract test suite ✅ *(29 passing, incl. 2 fuzz)*
 6. `hash-receipt` Edge Function — keccak256 server-side ✅ *deployed; auth/validation/CORS smoke-tested, hashing path not yet exercised*
 7. `getProductKey` / date→timestamp helpers ✅
-8. ABI export ✅ — **Sepolia deployment ❌**
+8. ABI export ✅ — **Arc Testnet deployment ❌**
 9. Create-proof UX, reconciliation, conflict states ⚠️ *built; never run against a live chain or wallet*
 
 Do not mark Phase 4 complete until 6, 8 and 9 land. Two specifics:
@@ -130,7 +130,7 @@ Small and deliberately flat:
 - `supabase/functions/parse-receipt/` — `index.ts` (auth, ownership, status transitions), `provider.ts` (everything Anthropic-specific), `extraction.ts` (the validator). One provider, no abstraction over providers.
 - `src/pages/*.tsx` — one component per route, default-exported, rendering only page content.
 - `src/lib/supabase.ts` — browser client. Exports `supabase`, which is **`SupabaseClient | null`**, plus `isSupabaseConfigured`. It is nullable on purpose: the app must run locally without a Supabase project, so check the flag (or narrow the null) before use rather than making the export non-nullable.
-- `src/lib/wagmi.ts` — wagmi **v3** (not v2; connectors live at `wagmi/connectors`). Sepolia only, injected connector only — no WalletConnect project ID needed. `VITE_SEPOLIA_RPC_URL` optionally overrides the default public RPC.
+- `src/lib/wagmi.ts` — wagmi **v3** (not v2; connectors live at `wagmi/connectors`). **Arc Testnet** only, injected connector only — no WalletConnect project ID needed. `VITE_ARC_TESTNET_RPC_URL` optionally overrides the default public RPC.
 - `src/components/wallet/WalletButton.tsx` — connect / shortened address / disconnect, slotted into `Header`.
 - `src/components/blockchain/OnchainProofCard.tsx` — every proof state on the product page. Renders `null` when no registry is configured.
 - `src/hooks/useOnchainProof.ts` — chain reads, background reconciliation, and the create-proof mutation. Nothing here broadcasts without a click.
@@ -205,6 +205,12 @@ Naming follows from that. Use **registrant**, **registeredBy**, **onchain proof*
 
 **Never put onchain:** serial numbers, retailer order IDs, customer names, emails, addresses, card details, storage paths, Supabase user IDs, filenames, or the receipt itself. Chain data is public and permanent. Every contract argument is an opaque digest or a date, and it stays that way.
 
+**The chain is Arc Testnet (chain id `5042002`), and gas is paid in USDC.** Arc is Circle's chain: USDC is the *native* token, so a wallet holding only ETH cannot transact here at all. Users and deployers fund from <https://faucet.circle.com>. Any copy about transaction cost must say USDC, never ETH or gas-in-ether terms.
+
+viem ships `arcTestnet` (`viem/chains`), so **never hand-write a custom chain definition** — the built-in carries the RPC list, the ArcScan explorer metadata the link helpers read, and multicall3. Arc is testnet-only today; there is no mainnet to fall back to, and `NEVER target mainnet` is Circle's own guidance.
+
+One decimals trap: native USDC on Arc has **18** decimals (like ether), while the ERC-20 USDC contract has 6. Nothing in this app moves USDC as a token, so only the native form is in play — but do not conflate them if that changes.
+
 **Supabase identity and wallet identity remain separate.** `auth.uid()` owns the private records; a wallet signs the proof. `blockchain_records.registered_wallet` is *data about an event* — it never appears in an RLS predicate and grants access to nothing.
 
 **All hex is stored lowercase and `0x`-prefixed**, enforced by check constraints on `blockchain_records`. wagmi hands out EIP-55 checksummed (mixed-case) addresses, so normalising at the boundary is what lets the unique indexes hold and lets chain-vs-database comparison use a plain `=`.
@@ -270,7 +276,7 @@ This app handles receipts and wallet connectivity, so these constraints are wort
 - **The `receipts` bucket is private and stays private**, with no `anon` policy and no blanket authenticated-read policy. Viewing goes through a short-lived signed URL minted on click, never persisted to the database or a query cache. Do not build a public URL for a receipt.
 - Never log receipt bytes, base64, filenames, signed URLs, or extracted contents — not to the console, not to a provider error, not into `extraction_error`, which holds a short reason token only.
 - The private receipt section must never appear on `/verify/:id`.
-- **`DEPLOYER_PRIVATE_KEY` and `SEPOLIA_RPC_URL` are deployment-only.** Never `VITE_` prefixed, never in `.env.example` (which is client configuration), never read by anything under `src/`. A `VITE_DEPLOYER_PRIVATE_KEY` would compile a funded key into a public bundle.
+- **`DEPLOYER_PRIVATE_KEY` and `ARC_TESTNET_RPC_URL` are deployment-only.** Never `VITE_` prefixed, never in `.env.example` (which is client configuration), never read by anything under `src/`. A `VITE_DEPLOYER_PRIVATE_KEY` would compile a funded key into a public bundle.
 - **A contract address is public and safe to expose**, so `VITE_WARRANTY_PASS_REGISTRY_ADDRESS` belongs in `.env.example`. Treat an unset address as "proof unavailable" — never fall back to a hardcoded or guessed address.
 - **Never add an `anon` policy to `blockchain_records`.** A proof row names a public transaction, but it also names the private product it belongs to. Someone reading Etherscan learns a key and a digest; that must not become a read of this table.
 - **Never derive a product key from anything but `public_id`.** Not a serial number, model, wallet, email, or receipt contents — `public_id` is opaque and random precisely so that what lands onchain, permanently and publicly, reveals nothing about the product.
