@@ -51,7 +51,20 @@ These are read by `forge script` and by nothing under `src/`.
 | Variable | Purpose |
 |---|---|
 | `ARC_TESTNET_RPC_URL` | RPC endpoint used to broadcast the deployment |
-| `DEPLOYER_PRIVATE_KEY` | Deployer key, `0x`-prefixed, funded with testnet **USDC** |
+
+**There is no `DEPLOYER_PRIVATE_KEY` variable.** The deploy script calls
+`vm.startBroadcast()` with no argument, so the signer comes from a Foundry
+wallet flag on the command line — `--account`, `--private-key`, `--interactive`,
+`--ledger`, `--trezor` or `--unlocked`. No private key is ever read into the
+script, so none can leak into a broadcast artifact from it.
+
+The preferred path is an encrypted keystore, which keeps no plaintext key on
+disk at all:
+
+```bash
+cast wallet import warrantypass-deployer --interactive   # once, prompts for the key
+cast wallet address --account warrantypass-deployer      # the address to fund
+```
 
 > **Gas on Arc is USDC, not ETH.** Arc is Circle's chain and USDC is its native
 > token, so a wallet holding only ETH cannot deploy or register anything here.
@@ -64,16 +77,11 @@ These are read by `forge script` and by nothing under `src/`.
 > **A `VITE_DEPLOYER_PRIVATE_KEY` would compile a funded private key into a
 > public JavaScript bundle.** The prefix is not a naming preference.
 
-These deliberately do **not** appear in `.env.example`, which is client
-configuration. Keep them in a shell profile, a password manager, or a
-gitignored `.env.deploy` that you source manually.
+Neither appears in `.env.example`, which is client configuration. Keep an RPC
+URL in a shell profile if you use a private endpoint.
 
-Better still, avoid a plaintext key entirely by using a Foundry keystore:
-
-```bash
-cast wallet import warrantypass-deployer --interactive   # once
-forge script ... --account warrantypass-deployer         # prompts for a password
-```
+If you do fall back to a raw key via `--private-key`, treat that as local-only:
+it lands in your shell history and in the process list.
 
 ### Supabase Edge Function secrets
 
@@ -145,19 +153,60 @@ forge build
 forge test                      # expected: all green before deploying anything
 ```
 
+### `--legacy` is required with the installed Foundry
+
+The Foundry on this machine is `forge 0.2.0` (an April 2024 nightly), and
+without `--legacy` it aborts with:
+
+```
+Error: Failed to get EIP-1559 fees
+```
+
+**This is a Foundry limitation, not an Arc one.** Arc's RPC implements EIP-1559
+correctly — `eth_feeHistory`, `eth_maxPriorityFeePerGas` (5 gwei) and a block
+`baseFeePerGas` (20 gwei) all answer as expected. The old forge simply fails to
+parse the response. `--legacy` sends a type-0 transaction priced from
+`eth_gasPrice`, which Arc accepts.
+
+Running `foundryup` to get current Foundry would likely remove the need for the
+flag; that has not been tried here.
+
+### Commands
+
 Simulate first — this spends nothing:
 
 ```bash
 forge script contracts/script/DeployWarrantyPassRegistry.s.sol \
-  --rpc-url "$ARC_TESTNET_RPC_URL" -vvvv
+  --rpc-url "$ARC_TESTNET_RPC_URL" --legacy \
+  --account warrantypass-deployer --sender <DEPLOYER_ADDRESS> -vvvv
 ```
 
 Then broadcast:
 
 ```bash
 forge script contracts/script/DeployWarrantyPassRegistry.s.sol \
-  --rpc-url "$ARC_TESTNET_RPC_URL" --broadcast -vvvv
+  --rpc-url "$ARC_TESTNET_RPC_URL" --legacy \
+  --account warrantypass-deployer --sender <DEPLOYER_ADDRESS> \
+  --broadcast -vvvv
 ```
+
+`--sender` is what makes the logged deployer address and balance reflect the
+real account during simulation; without it forge substitutes a default sender
+and the balance line is meaningless.
+
+### What it costs
+
+A dry run against the live Arc RPC estimates:
+
+| | |
+|---|---|
+| Gas price | 25 gwei |
+| Gas used | 572,146 |
+| Total | **~0.0143 USDC** |
+
+Note that forge prints this as "ETH" — that label is hardcoded in its output and
+is wrong here. Arc's native token is USDC, so the figure is USDC. A single
+faucet drip covers the deployment and many registrations.
 
 The registry takes no constructor arguments and has no initialiser, owner or
 admin, so a deployment is complete the moment the transaction confirms. There
@@ -172,11 +221,53 @@ Fill this in after deploying, and set
 |---|---|
 | Network | Arc Testnet |
 | Chain ID | 5042002 |
-| Contract address | _not yet deployed_ |
-| Deployment tx | _not yet deployed_ |
-| Block number | _not yet deployed_ |
+| Contract address | `0xBdf3a2c90cEAB5A307e78956Bc1BeF33c19C1F78` |
+| Deployment tx | `0x8c4dd06646fed1f02b6ab58eae3df00d7ecb337dd8420c09960a410e7e7174db` |
+| Block number | 61835807 |
+| Deployer (registrant of nothing — just paid gas) | `0x7d5CF15FA320901c1175d53007e78B19D73A1b65` |
+| Gas used | 440,227 at 25 gwei = **0.01100567 USDC** |
+| Runtime bytecode | 1,791 bytes, exact match with `contracts/out` including metadata hash |
 | Compiler | solc 0.8.24, optimizer on, 200 runs |
-| Source verified | _not yet_ |
+| Source verified | not attempted — see below |
+
+Explorer: <https://testnet.arcscan.app/address/0xBdf3a2c90cEAB5A307e78956Bc1BeF33c19C1F78>
+
+### Post-deployment checks that were run
+
+| Check | Result |
+|---|---|
+| `eth_getCode` at the address | 1,791 bytes present |
+| Bytecode vs local artifact | byte-identical, metadata hash included |
+| Transaction receipt status | `0x1` (success) |
+| `exists(<a product key>)` | `false` — reads work |
+| `exists(0x0)` | `false`, no revert |
+| `getWarranty(<unregistered key>)` raw revert data | `0x36a99e35` + the key — i.e. `WarrantyNotFound(bytes32)` |
+
+That last row is the one worth re-running after any RPC change. `readWarrantyRecord`
+translates a `WarrantyNotFound` revert into `null` ("no proof yet"), which needs
+the node to return revert *data*, not just "execution reverted". Arc does.
+
+### First end-to-end registration
+
+The create-proof flow was run once from the browser and confirmed from chain
+state, not from the UI:
+
+| | |
+|---|---|
+| Event | `WarrantyRegistered`, block 61837130 |
+| Tx | `0xd5a7b1d8607e21abd64460191fdaba7aae4c509eeb9d51e95e6989fe7ddf1f19` |
+| Receipt digest | `0xabd5abb6…a4b18b39` — non-zero, so `hash-receipt` really did read the stored object |
+| Purchase / end | `1740528000` / `1772064000` — both exactly UTC midnight, 365 days apart |
+| Transferable | `false` |
+
+The midnight alignment is the useful detail: it confirms `chainDates.ts` produced
+UTC midnights in the real flow rather than local ones, which is the bug that
+would have shifted a date for anyone west of Greenwich.
+
+**Not yet exercised:** the recovery path (a confirmed transaction while Supabase
+still reads `pending`) and the conflict path (an onchain digest disagreeing with
+the database). Both have unit coverage over `deriveProofState`; neither has been
+forced against the live chain.
 
 ### Source verification (optional)
 

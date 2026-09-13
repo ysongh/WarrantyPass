@@ -8,29 +8,42 @@ import {WarrantyPassRegistry} from "../src/WarrantyPassRegistry.sol";
 
 /// @notice Deploys the registry. Arc Testnet in practice, but chain-agnostic.
 ///
-/// @dev Secrets
-/// -----------
-/// The deployer key is read from the `DEPLOYER_PRIVATE_KEY` environment
-/// variable and never appears in this file, in `.env.example`, or in any
-/// committed artifact. It must never be given a `VITE_` prefix: that would
-/// compile a funded key into a public JavaScript bundle.
+/// @dev The wallet comes from the command line, never from this file
+/// ---------------------------------------------------------------
+/// `vm.startBroadcast()` is called with **no argument**, so the signer is
+/// whichever wallet the CLI supplies. That keeps every key-handling decision at
+/// the call site and lets the same script work with an encrypted keystore, a
+/// hardware wallet, or a raw key, without the script knowing which.
 ///
-/// A local keystore is the better habit if you have one set up — drop the env
-/// var and run with `--account <name>`, which prompts for a password instead of
-/// leaving a plaintext key on disk.
+/// It also means no private key is ever read into the script's memory, and none
+/// can leak into a broadcast artifact from here.
+///
+/// A keystore is the preferred option — it never puts a plaintext key on disk:
+///
+///   cast wallet import warrantypass-deployer --interactive   # once
 ///
 /// @dev Usage
 /// ----------
 ///   forge script contracts/script/DeployWarrantyPassRegistry.s.sol \
-///     --rpc-url "$ARC_TESTNET_RPC_URL" --broadcast -vvvv
+///     --rpc-url "$ARC_TESTNET_RPC_URL" --legacy \
+///     --account warrantypass-deployer --broadcast -vvvv
+///
+/// Any other Foundry wallet flag works in place of `--account`:
+/// `--private-key`, `--interactive`, `--ledger`, `--trezor`, `--unlocked`.
+/// Passing a raw `--private-key` is acceptable for local experiments only.
 ///
 /// Drop `--broadcast` for a simulation that spends nothing.
+///
+/// `--legacy` is required by the Foundry installed here (forge 0.2.0, an April
+/// 2024 nightly), which fails with "Failed to get EIP-1559 fees" against Arc.
+/// That is a limitation of the old toolchain, not of Arc — the RPC implements
+/// EIP-1559 correctly. A current Foundry would likely not need the flag.
 ///
 /// @dev Gas is paid in USDC
 /// -----------------------
 /// Arc is Circle's chain and USDC is its native token, so the deployer needs
 /// testnet USDC — not ETH — from https://faucet.circle.com. A wallet funded
-/// with ETH cannot deploy here. `deployer.balance` below is that USDC balance,
+/// with ETH cannot deploy here. The balance logged below is that USDC balance,
 /// in 18-decimal native units.
 ///
 /// Source verification is deliberately not wired into this command. Arc's
@@ -45,14 +58,14 @@ import {WarrantyPassRegistry} from "../src/WarrantyPassRegistry.sol";
 /// deliberate property of the design, not an omission here.
 contract DeployWarrantyPassRegistry is Script {
     function run() external returns (WarrantyPassRegistry registry) {
-        uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        address deployer = vm.addr(deployerKey);
-
+        // Forge resolves `msg.sender` to the wallet named on the command line,
+        // so this reports the account that is actually about to pay — not a
+        // value this script chose.
         console.log("chain id  ", block.chainid);
-        console.log("deployer  ", deployer);
-        console.log("balance   ", deployer.balance);
+        console.log("deployer  ", msg.sender);
+        console.log("balance   ", msg.sender.balance);
 
-        vm.startBroadcast(deployerKey);
+        vm.startBroadcast();
         registry = new WarrantyPassRegistry();
         vm.stopBroadcast();
 

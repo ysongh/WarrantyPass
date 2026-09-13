@@ -91,16 +91,20 @@ React/Vite/TypeScript, Tailwind, React Router, app shell, landing page, placehol
 3. Foundry toolchain ✅
 4. `WarrantyPassRegistry.sol` ✅
 5. Contract test suite ✅ *(29 passing, incl. 2 fuzz)*
-6. `hash-receipt` Edge Function — keccak256 server-side ✅ *deployed; auth/validation/CORS smoke-tested, hashing path not yet exercised*
+6. `hash-receipt` Edge Function — keccak256 server-side ✅ *deployed and exercised end to end*
 7. `getProductKey` / date→timestamp helpers ✅
-8. ABI export ✅ — **Arc Testnet deployment ❌**
-9. Create-proof UX, reconciliation, conflict states ⚠️ *built; never run against a live chain or wallet*
+8. ABI export ✅ — Arc Testnet deployment ✅ *(`0xBdf3a2c9…C19C1F78`, block 61835807)*
+9. Create-proof UX, reconciliation, conflict states ✅ *create-proof confirmed on Arc; recovery and conflict paths not manually forced*
 
-Do not mark Phase 4 complete until 6, 8 and 9 land. Two specifics:
+Do not mark Phase 4 complete until 9 is exercised end to end. Two specifics:
 
-**There is no deployed contract address.** `VITE_WARRANTY_PASS_REGISTRY_ADDRESS` is blank and `registryAddress` correctly resolves to `null`. Frontend work must treat that as "proof unavailable" — never a hardcoded or guessed address.
+**The registry is deployed** at `0xBdf3a2c90cEAB5A307e78956Bc1BeF33c19C1F78` on Arc Testnet (block 61835807, tx `0x8c4dd066…7e7174db`). Bytecode was verified byte-identical to `contracts/out`, and reads were confirmed against it — including that `getWarranty` on an unregistered key returns decodable `WarrantyNotFound` revert data, which is what `readWarrantyRecord` depends on to report "no proof yet". Full record in `docs/deployment.md`.
 
-**`hash-receipt` is deployed, but has never hashed anything.** Its gate is verified — the platform 401s a missing header, the function 401s the anon key alone, a malformed `receiptId` 400s, `GET` 405s, and `OPTIONS` returns 204 with CORS. What has *not* run is the part that matters: downloading a stored object, recomputing the SHA-256 witness, and writing a keccak digest. That needs a real session and a real receipt.
+An unset `VITE_WARRANTY_PASS_REGISTRY_ADDRESS` must still be handled as "proof unavailable" — never a hardcoded or guessed address.
+
+**The full flow has run once against Arc Testnet**, confirmed from chain state rather than from the UI: one `WarrantyRegistered` event in block 61837130 (tx `0xd5a7b1d8…7ddf1f19`) carrying a non-zero receipt digest, a registrant, and both dates at exact UTC midnight 365 days apart. That digest could only have come from `hash-receipt` reading a stored object, so the hashing path is proven too.
+
+**What is still untested:** the recovery path (§50 — a confirmed transaction while Supabase still says `pending`) and the conflict path (§51 — an onchain digest that disagrees with the database). Both are covered by unit-level checks on `deriveProofState`, and reconciliation is written, but neither has been forced against a live chain. Source verification on ArcScan has not been attempted either.
 
 Still explicitly **out of scope until a later phase**: ENSv2, product ownership/transfer, NFTs of any kind, QR codes, service records, notifications, public verification data. Phase 4 adds onchain *writes* but no ownership model — see *Onchain proof* below.
 
@@ -276,7 +280,7 @@ This app handles receipts and wallet connectivity, so these constraints are wort
 - **The `receipts` bucket is private and stays private**, with no `anon` policy and no blanket authenticated-read policy. Viewing goes through a short-lived signed URL minted on click, never persisted to the database or a query cache. Do not build a public URL for a receipt.
 - Never log receipt bytes, base64, filenames, signed URLs, or extracted contents — not to the console, not to a provider error, not into `extraction_error`, which holds a short reason token only.
 - The private receipt section must never appear on `/verify/:id`.
-- **`DEPLOYER_PRIVATE_KEY` and `ARC_TESTNET_RPC_URL` are deployment-only.** Never `VITE_` prefixed, never in `.env.example` (which is client configuration), never read by anything under `src/`. A `VITE_DEPLOYER_PRIVATE_KEY` would compile a funded key into a public bundle.
+- **The deploy script never reads a private key.** `vm.startBroadcast()` takes no argument, so the signer comes from a Foundry wallet flag (`--account` with a keystore, preferably). There is no `DEPLOYER_PRIVATE_KEY` variable to leak, and nothing under `src/` touches deployment config. A `VITE_`-prefixed key of any kind would compile a funded key into a public bundle.
 - **A contract address is public and safe to expose**, so `VITE_WARRANTY_PASS_REGISTRY_ADDRESS` belongs in `.env.example`. Treat an unset address as "proof unavailable" — never fall back to a hardcoded or guessed address.
 - **Never add an `anon` policy to `blockchain_records`.** A proof row names a public transaction, but it also names the private product it belongs to. Someone reading Etherscan learns a key and a digest; that must not become a read of this table.
 - **Never derive a product key from anything but `public_id`.** Not a serial number, model, wallet, email, or receipt contents — `public_id` is opaque and random precisely so that what lands onchain, permanently and publicly, reveals nothing about the product.
