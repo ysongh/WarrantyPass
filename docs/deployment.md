@@ -228,7 +228,7 @@ Fill this in after deploying, and set
 | Gas used | 440,227 at 25 gwei = **0.01100567 USDC** |
 | Runtime bytecode | 1,791 bytes, exact match with `contracts/out` including metadata hash |
 | Compiler | solc 0.8.24, optimizer on, 200 runs |
-| Source verified | not attempted — see below |
+| Source verified | **yes** — fully verified on ArcScan (Blockscout) |
 
 Explorer: <https://testnet.arcscan.app/address/0xBdf3a2c90cEAB5A307e78956Bc1BeF33c19C1F78>
 
@@ -269,27 +269,42 @@ still reads `pending`) and the conflict path (an onchain digest disagreeing with
 the database). Both have unit coverage over `deriveProofState`; neither has been
 forced against the live chain.
 
-### Source verification (optional)
+### Source verification — done
 
-Not required for the app to work, and not a blocker.
-
-Arc's explorer is **ArcScan** (<https://testnet.arcscan.app>), not Etherscan, so
-the usual `--chain sepolia --etherscan-api-key` incantation does not apply. The
-chain metadata advertises a Blockscout-style API at
-`https://testnet.arcscan.app/api`, which would make the command roughly:
+ArcScan is a **Blockscout** instance, not Etherscan, so no `ETHERSCAN_API_KEY`
+and no `--chain` flag are involved. No API key at all is needed. This is the
+command that worked:
 
 ```bash
-forge verify-contract <ADDRESS> \
+forge verify-contract 0xBdf3a2c90cEAB5A307e78956Bc1BeF33c19C1F78 \
   contracts/src/WarrantyPassRegistry.sol:WarrantyPassRegistry \
   --verifier blockscout \
   --verifier-url https://testnet.arcscan.app/api \
+  --compiler-version 0.8.24 \
   --watch
 ```
 
-⚠️ **This command has not been run and is not confirmed to work.** It is
-inferred from the explorer's advertised API, not from a successful verification.
-Check ArcScan's own documentation before relying on it, and do not record the
-contract as "verified" until an explorer page actually shows the source.
+Two cosmetic lies in its output, both harmless: it prints "deployed on mainnet"
+and an `etherscan.io` link, because no `--chain` was passed. The submission goes
+to `--verifier-url`. Ignore the link and check ArcScan.
+
+Confirmed independently afterwards:
+
+```bash
+curl -s "https://testnet.arcscan.app/api/v2/smart-contracts/0xBdf3a2c90cEAB5A307e78956Bc1BeF33c19C1F78"
+```
+
+| Field | Value |
+|---|---|
+| `is_verified` / `is_fully_verified` | `true` / `true` — exact match, not partial |
+| `compiler_version` | `v0.8.24+commit.e11b9ed9` |
+| `optimization_enabled` / `optimization_runs` | `true` / `200` |
+| `evm_version` | `paris` |
+| ABI entries | 11 — the same 4 functions, 1 event and 6 errors `pnpm sync:abi` emits |
+
+Anyone can now read the registry's source next to its bytecode and confirm that
+the contract holding these digests does what this repo says it does — which is
+the only reason verification is worth doing for a proof registry.
 
 ---
 

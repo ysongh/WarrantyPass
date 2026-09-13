@@ -104,7 +104,9 @@ An unset `VITE_WARRANTY_PASS_REGISTRY_ADDRESS` must still be handled as "proof u
 
 **The full flow has run once against Arc Testnet**, confirmed from chain state rather than from the UI: one `WarrantyRegistered` event in block 61837130 (tx `0xd5a7b1d8…7ddf1f19`) carrying a non-zero receipt digest, a registrant, and both dates at exact UTC midnight 365 days apart. That digest could only have come from `hash-receipt` reading a stored object, so the hashing path is proven too.
 
-**What is still untested:** the recovery path (§50 — a confirmed transaction while Supabase still says `pending`) and the conflict path (§51 — an onchain digest that disagrees with the database). Both are covered by unit-level checks on `deriveProofState`, and reconciliation is written, but neither has been forced against a live chain. Source verification on ArcScan has not been attempted either.
+**The contract source is verified on ArcScan** (Blockscout, `is_fully_verified: true`). Verification needs no API key — `--verifier blockscout --verifier-url https://testnet.arcscan.app/api`, and **not** `--chain`/`ETHERSCAN_API_KEY`, which do not apply. See `docs/deployment.md`.
+
+**What is still untested:** the recovery path (a confirmed transaction while Supabase still says `pending`) and the conflict path (an onchain digest that disagrees with the database). Both are covered by unit-level checks on `deriveProofState`, and reconciliation is written, but neither has been forced against a live chain. Nor has a phase 2 product with no receipt been checked on the new product page.
 
 Still explicitly **out of scope until a later phase**: ENSv2, product ownership/transfer, NFTs of any kind, QR codes, service records, notifications, public verification data. Phase 4 adds onchain *writes* but no ownership model — see *Onchain proof* below.
 
